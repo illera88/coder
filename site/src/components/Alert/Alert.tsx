@@ -7,13 +7,7 @@ import {
 	TriangleAlertIcon,
 	XIcon,
 } from "lucide-react";
-import {
-	type FC,
-	type PropsWithChildren,
-	type ReactNode,
-	type Ref,
-	useState,
-} from "react";
+import { type FC, type ReactNode, useState } from "react";
 import { cn } from "utils/cn";
 
 const alertVariants = cva(
@@ -144,6 +138,8 @@ export const AlertDetail: React.FC<React.PropsWithChildren> = ({
 export const AlertTitle: React.FC<React.ComponentPropsWithRef<"h1">> = ({
 	className,
 	...props
-}) => (
-	<h1 className={cn("m-0 mb-1 text-sm font-medium", className)} {...props} />
-);
+}) => {
+	return (
+		<h1 className={cn("m-0 mb-1 text-sm font-medium", className)} {...props} />
+	);
+};
