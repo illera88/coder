@@ -1,14 +1,17 @@
 /**
- * Copied from shadc/ui on 04/18/2025
+ * Copied from shadc/ui on 11/13/2024
  * @see {@link https://ui.shadcn.com/docs/components/textarea}
  */
-import * as React from "react";
+import { type Ref } from "react";
 import { cn } from "utils/cn";
 
-export const Textarea = React.forwardRef<
-	HTMLTextAreaElement,
-	React.ComponentProps<"textarea">
->(({ className, ...props }, ref) => {
+export const Textarea = ({
+	className,
+	ref,
+	...props
+}: React.ComponentProps<"textarea"> & {
+	ref?: Ref<HTMLTextAreaElement>;
+}) => {
 	return (
 		<textarea
 			className={cn(
@@ -22,4 +25,4 @@ export const Textarea = React.forwardRef<
 			{...props}
 		/>
 	);
-});
+};

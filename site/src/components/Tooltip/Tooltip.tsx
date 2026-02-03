@@ -22,10 +22,15 @@ export type TooltipContentProps = React.ComponentPropsWithoutRef<
 	disablePortal?: boolean;
 };
 
-export const TooltipContent = React.forwardRef<
-	React.ElementRef<typeof TooltipPrimitive.Content>,
-	TooltipContentProps
->(({ className, sideOffset = 4, disablePortal, ...props }, ref) => {
+export const TooltipContent = ({
+	className,
+	sideOffset = 4,
+	disablePortal,
+	ref,
+	...props
+}: TooltipContentProps & {
+	ref?: React.Ref<React.ComponentRef<typeof TooltipPrimitive.Content>>;
+}) => {
 	const content = (
 		<TooltipPrimitive.Content
 			ref={ref}
@@ -47,4 +52,4 @@ export const TooltipContent = React.forwardRef<
 	) : (
 		<TooltipPrimitive.Portal>{content}</TooltipPrimitive.Portal>
 	);
-});
+};

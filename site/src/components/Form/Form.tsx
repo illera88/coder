@@ -5,9 +5,9 @@ import {
 	type ComponentProps,
 	createContext,
 	type FC,
-	forwardRef,
 	type HTMLProps,
 	type ReactNode,
+	type Ref,
 	useContext,
 } from "react";
 import { cn } from "utils/cn";
@@ -78,51 +78,47 @@ interface FormSectionProps {
 	deprecated?: boolean;
 }
 
-export const FormSection = forwardRef<HTMLDivElement, FormSectionProps>(
-	(
-		{
-			children,
-			title,
-			description,
-			classes = {},
-			alpha = false,
-			deprecated = false,
-		},
-		ref,
-	) => {
-		const { direction } = useContext(FormContext);
+export const FormSection = ({
+	children,
+	title,
+	description,
+	classes = {},
+	alpha = false,
+	deprecated = false,
+	ref,
+}: FormSectionProps & { ref?: Ref<HTMLDivElement> }) => {
+	const { direction } = useContext(FormContext);
 
-		return (
-			<section
-				ref={ref}
+	return (
+		<section
+			ref={ref}
+			css={[
+				styles.formSection,
+				direction === "horizontal" && styles.formSectionHorizontal,
+			]}
+			className={classes.root}
+		>
+			<div
 				css={[
-					styles.formSection,
-					direction === "horizontal" && styles.formSectionHorizontal,
+					styles.formSectionInfo,
+					direction === "horizontal" && styles.formSectionInfoHorizontal,
 				]}
-				className={classes.root}
+				className={classes.sectionInfo}
 			>
-				<div
-					css={[
-						styles.formSectionInfo,
-						direction === "horizontal" && styles.formSectionInfoHorizontal,
-					]}
-					className={classes.sectionInfo}
-				>
-					<header className="flex items-center gap-4">
-						<h2 css={styles.formSectionInfoTitle} className={classes.infoTitle}>
-							{title}
-						</h2>
-						{alpha && <AlphaBadge />}
-						{deprecated && <DeprecatedBadge />}
-					</header>
-					<div css={styles.formSectionInfoDescription}>{description}</div>
-				</div>
+				<header className="flex items-center gap-4">
+					<h2 css={styles.formSectionInfoTitle} className={classes.infoTitle}>
+						{title}
+					</h2>
+					{alpha && <AlphaBadge />}
+					{deprecated && <DeprecatedBadge />}
+				</header>
+				<div css={styles.formSectionInfoDescription}>{description}</div>
+			</div>
 
-				{children}
-			</section>
-		);
-	},
-);
+			{children}
+		</section>
+	);
+};
 
 export const FormFields: FC<ComponentProps<typeof Stack>> = (props) => {
 	return (

@@ -16,10 +16,10 @@ import {
 import { CircleHelpIcon, ExternalLinkIcon } from "lucide-react";
 import {
 	type FC,
-	forwardRef,
 	type HTMLAttributes,
 	type PropsWithChildren,
 	type ReactNode,
+	type Ref,
 } from "react";
 import { cn } from "utils/cn";
 
@@ -58,17 +58,13 @@ type HelpTooltipIconTriggerProps = HTMLAttributes<HTMLButtonElement> & {
 	hoverEffect?: boolean;
 };
 
-export const HelpTooltipIconTrigger = forwardRef<
-	HTMLButtonElement,
-	HelpTooltipIconTriggerProps
->((props, ref) => {
-	const {
-		size = "medium",
-		children = <HelpTooltipIcon />,
-		hoverEffect = true,
-		...buttonProps
-	} = props;
-
+export const HelpTooltipIconTrigger = ({
+	size = "medium",
+	children = <HelpTooltipIcon />,
+	hoverEffect = true,
+	ref,
+	...buttonProps
+}: HelpTooltipIconTriggerProps & { ref?: Ref<HTMLButtonElement> }) => {
 	const hoverEffectStyles = css({
 		opacity: 0.5,
 		"&:hover": {
@@ -105,7 +101,7 @@ export const HelpTooltipIconTrigger = forwardRef<
 			</button>
 		</HelpTooltipTrigger>
 	);
-});
+};
 
 export const HelpTooltipTitle: FC<HTMLAttributes<HTMLHeadingElement>> = ({
 	children,

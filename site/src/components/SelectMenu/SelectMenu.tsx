@@ -16,10 +16,10 @@ import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import {
 	Children,
 	type FC,
-	forwardRef,
 	type HTMLProps,
 	isValidElement,
 	type ReactElement,
+	type Ref,
 	useMemo,
 } from "react";
 import { cn } from "utils/cn";
@@ -46,10 +46,13 @@ type SelectMenuButtonProps = ButtonProps & {
 	startIcon?: React.ReactNode;
 };
 
-export const SelectMenuButton = forwardRef<
-	HTMLButtonElement,
-	SelectMenuButtonProps
->(({ className, startIcon, children, ...props }, ref) => {
+export const SelectMenuButton = ({
+	className,
+	startIcon,
+	children,
+	ref,
+	...props
+}: SelectMenuButtonProps & { ref?: Ref<HTMLButtonElement> }) => {
 	return (
 		<Button
 			variant="outline"
@@ -67,7 +70,7 @@ export const SelectMenuButton = forwardRef<
 			<ChevronDownIcon />
 		</Button>
 	);
-});
+};
 
 export const SelectMenuSearch: FC<SearchFieldProps> = ({
 	className,

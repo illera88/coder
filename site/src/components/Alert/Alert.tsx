@@ -9,9 +9,9 @@ import {
 } from "lucide-react";
 import {
 	type FC,
-	forwardRef,
 	type PropsWithChildren,
 	type ReactNode,
+	type Ref,
 	useState,
 } from "react";
 import { cn } from "utils/cn";
@@ -139,13 +139,16 @@ export const AlertDetail: FC<PropsWithChildren> = ({ children }) => {
 	);
 };
 
-export const AlertTitle = forwardRef<
-	HTMLHeadingElement,
-	React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
+export const AlertTitle = ({
+	className,
+	ref,
+	...props
+}: React.HTMLAttributes<HTMLHeadingElement> & {
+	ref?: Ref<HTMLHeadingElement>;
+}) => (
 	<h1
 		ref={ref}
 		className={cn("m-0 mb-1 text-sm font-medium", className)}
 		{...props}
 	/>
-));
+);

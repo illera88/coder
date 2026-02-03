@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { Button, type ButtonProps } from "components/Button/Button";
 import { Input } from "components/Input/Input";
-import { type FC, forwardRef } from "react";
+import { type FC, type Ref } from "react";
 import { cn } from "utils/cn";
 
 const InputGroup: FC<React.ComponentProps<"div">> = ({
@@ -63,10 +63,13 @@ const InputGroupAddon: FC<
 	);
 };
 
-const InputGroupInput = forwardRef<
-	HTMLInputElement,
-	React.ComponentProps<typeof Input>
->(({ className, ...props }, ref) => {
+const InputGroupInput = ({
+	className,
+	ref,
+	...props
+}: React.ComponentProps<typeof Input> & {
+	ref?: Ref<HTMLInputElement>;
+}) => {
 	return (
 		<Input
 			ref={ref}
@@ -74,14 +77,14 @@ const InputGroupInput = forwardRef<
 				// Reset Input's default styles that conflict with group
 				"flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0",
 				// Adjust padding based on addon position
-				"group-has-[[data-align=inline-start]]/input-group:pl-0",
-				"group-has-[[data-align=inline-end]]/input-group:pr-0",
+				"has-[+.input-addon-inline-start]:pl-0",
+				"has-[.input-addon-inline-end+&]:pr-0",
 				className,
 			)}
 			{...props}
 		/>
 	);
-});
+};
 
 const InputGroupButton: FC<ButtonProps> = ({
 	className,

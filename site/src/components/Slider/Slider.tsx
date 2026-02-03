@@ -3,13 +3,16 @@
  * @see {@link https://ui.shadcn.com/docs/components/slider}
  */
 import * as SliderPrimitive from "@radix-ui/react-slider";
-import * as React from "react";
+import { type Ref } from "react";
 import { cn } from "utils/cn";
 
-export const Slider = React.forwardRef<
-	React.ElementRef<typeof SliderPrimitive.Root>,
-	React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
->(({ className, ...props }, ref) => (
+export const Slider = ({
+	className,
+	ref,
+	...props
+}: React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> & {
+	ref?: Ref<React.ComponentRef<typeof SliderPrimitive.Root>>;
+}) => (
 	<SliderPrimitive.Root
 		ref={ref}
 		className={cn(
@@ -35,4 +38,4 @@ export const Slider = React.forwardRef<
 			disabled:pointer-events-none data-[disabled]:opacity-100 data-[disabled]:border-border"
 		/>
 	</SliderPrimitive.Root>
-));
+);

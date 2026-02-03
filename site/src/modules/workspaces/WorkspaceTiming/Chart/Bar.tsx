@@ -1,5 +1,5 @@
 import type { Interpolation, Theme } from "@emotion/react";
-import { type ButtonHTMLAttributes, forwardRef, type HTMLProps } from "react";
+import { type ButtonHTMLAttributes, type HTMLProps, type Ref } from "react";
 export type BarColors = {
 	stroke: string;
 	fill: string;
@@ -24,32 +24,42 @@ type BaseBarProps<T> = Omit<T, "size" | "color"> & {
 
 type BarProps = BaseBarProps<HTMLProps<HTMLDivElement>>;
 
-export const Bar = forwardRef<HTMLDivElement, BarProps>(
-	({ colors, scale, value, offset, ...htmlProps }, ref) => {
-		return (
-			<div
-				css={barCSS({ colors, scale, value, offset })}
-				{...htmlProps}
-				ref={ref}
-			/>
-		);
-	},
-);
+export const Bar = ({
+	colors,
+	scale,
+	value,
+	offset,
+	ref,
+	...htmlProps
+}: BarProps & { ref?: Ref<HTMLDivElement> }) => {
+	return (
+		<div
+			css={barCSS({ colors, scale, value, offset })}
+			{...htmlProps}
+			ref={ref}
+		/>
+	);
+};
 
 type ClickableBarProps = BaseBarProps<ButtonHTMLAttributes<HTMLButtonElement>>;
 
-export const ClickableBar = forwardRef<HTMLButtonElement, ClickableBarProps>(
-	({ colors, scale, value, offset, ...htmlProps }, ref) => {
-		return (
-			<button
-				type="button"
-				css={[...barCSS({ colors, scale, value, offset }), styles.clickable]}
-				{...htmlProps}
-				ref={ref}
-			/>
-		);
-	},
-);
+export const ClickableBar = ({
+	colors,
+	scale,
+	value,
+	offset,
+	ref,
+	...htmlProps
+}: ClickableBarProps & { ref?: Ref<HTMLButtonElement> }) => {
+	return (
+		<button
+			type="button"
+			css={[...barCSS({ colors, scale, value, offset }), styles.clickable]}
+			{...htmlProps}
+			ref={ref}
+		/>
+	);
+};
 
 const barCSS = ({ scale, value, colors, offset }: BaseBarProps<unknown>) => {
 	return [

@@ -4,7 +4,7 @@
  */
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { forwardRef } from "react";
+import { type Ref } from "react";
 import { cn } from "utils/cn";
 
 // Be careful when changing the child styles from the button such as images
@@ -62,27 +62,33 @@ export interface ButtonProps
 	extends React.ButtonHTMLAttributes<HTMLButtonElement>,
 		VariantProps<typeof buttonVariants> {
 	asChild?: boolean;
+	ref?: Ref<HTMLButtonElement>;
 }
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-	({ className, variant, size, asChild = false, ...props }, ref) => {
-		const Comp = asChild ? Slot : "button";
-		return (
-			<Comp
-				{...props}
-				ref={ref}
-				className={cn(buttonVariants({ variant, size }), className)}
-				// Adding default button type to make sure that buttons don't
-				// accidentally trigger form actions when clicked. But because
-				// this Button component is so polymorphic (it's also used to
-				// make <a> elements look like buttons), we can only safely
-				// default to adding the prop when we know that we're rendering
-				// a real HTML button instead of an arbitrary Slot. Adding the
-				// type attribute to any non-buttons will produce invalid HTML
-				type={
-					props.type === undefined && Comp === "button" ? "button" : props.type
-				}
-			/>
-		);
-	},
-);
+export const Button = ({
+	className,
+	variant,
+	size,
+	asChild = false,
+	ref,
+	...props
+}: ButtonProps) => {
+	const Comp = asChild ? Slot : "button";
+	return (
+		<Comp
+			{...props}
+			ref={ref}
+			className={cn(buttonVariants({ variant, size }), className)}
+			// Adding default button type to make sure that buttons don't
+			// accidentally trigger form actions when clicked. But because
+			// this Button component is so polymorphic (it's also used to
+			// make <a> elements look like buttons), we can only safely
+			// default to adding the prop when we know that we're rendering
+			// a real HTML button instead of an arbitrary Slot. Adding the
+			// type attribute to any non-buttons will produce invalid HTML
+			type={
+				props.type === undefined && Comp === "button" ? "button" : props.type
+			}
+		/>
+	);
+};

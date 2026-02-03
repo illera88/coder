@@ -2,9 +2,9 @@ import { Badge } from "components/Badge/Badge";
 import { Stack } from "components/Stack/Stack";
 import {
 	type FC,
-	forwardRef,
 	type HTMLAttributes,
 	type PropsWithChildren,
+	type Ref,
 } from "react";
 
 export const EnabledBadge: FC = () => {
@@ -22,16 +22,15 @@ export const EntitledBadge: FC = () => {
 		</Badge>
 	);
 };
-export const DisabledBadge: FC = forwardRef<
-	HTMLDivElement,
-	HTMLAttributes<HTMLDivElement>
->((props, ref) => {
+export const DisabledBadge: FC<
+	HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement> }
+> = ({ ref, ...props }) => {
 	return (
 		<Badge ref={ref} {...props} className="option-disabled">
 			Disabled
 		</Badge>
 	);
-});
+};
 
 export const EnterpriseBadge: FC = () => {
 	return (

@@ -1,5 +1,5 @@
 import type { CSSObject } from "@emotion/react";
-import { forwardRef } from "react";
+import { type Ref } from "react";
 
 /**
  * @deprecated Stack component is deprecated. Use Tailwind flex utilities instead.
@@ -11,12 +11,14 @@ type StackProps = {
 	alignItems?: CSSObject["alignItems"];
 	justifyContent?: CSSObject["justifyContent"];
 	wrap?: CSSObject["flexWrap"];
+	children?: React.ReactNode;
+	ref?: Ref<HTMLDivElement>;
 } & React.HTMLProps<HTMLDivElement>;
 
 /**
  * @deprecated Stack component is deprecated. Use Tailwind flex utilities instead.
  */
-export const Stack = forwardRef<HTMLDivElement, StackProps>((props, ref) => {
+export const Stack = (props: StackProps) => {
 	const {
 		children,
 		direction = "column",
@@ -24,6 +26,7 @@ export const Stack = forwardRef<HTMLDivElement, StackProps>((props, ref) => {
 		alignItems,
 		justifyContent,
 		wrap,
+		ref,
 		...divProps
 	} = props;
 
@@ -44,4 +47,4 @@ export const Stack = forwardRef<HTMLDivElement, StackProps>((props, ref) => {
 			{children}
 		</div>
 	);
-});
+};

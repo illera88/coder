@@ -1,11 +1,13 @@
 import { useTheme } from "@emotion/react";
-import { forwardRef, type ImgHTMLAttributes } from "react";
+import { type ImgHTMLAttributes, type Ref } from "react";
 import { getExternalImageStylesFromUrl } from "theme/externalImages";
 
-export const ExternalImage = forwardRef<
-	HTMLImageElement,
-	ImgHTMLAttributes<HTMLImageElement>
->((props, ref) => {
+export const ExternalImage = ({
+	ref,
+	...props
+}: ImgHTMLAttributes<HTMLImageElement> & {
+	ref?: Ref<HTMLImageElement>;
+}) => {
 	const theme = useTheme();
 
 	return (
@@ -16,4 +18,4 @@ export const ExternalImage = forwardRef<
 			{...props}
 		/>
 	);
-});
+};

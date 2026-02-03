@@ -10,10 +10,13 @@ import { cn } from "utils/cn";
 /**
  * To allow for an indeterminate state the checkbox must be controlled, otherwise the checked prop would remain undefined
  */
-export const Checkbox = React.forwardRef<
-	React.ElementRef<typeof CheckboxPrimitive.Root>,
-	React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
->(({ className, ...props }, ref) => (
+export const Checkbox = ({
+	className,
+	ref,
+	...props
+}: React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root> & {
+	ref?: React.Ref<React.ComponentRef<typeof CheckboxPrimitive.Root>>;
+}) => (
 	<CheckboxPrimitive.Root
 		ref={ref}
 		className={cn(
@@ -41,4 +44,4 @@ export const Checkbox = React.forwardRef<
 			</div>
 		</CheckboxPrimitive.Indicator>
 	</CheckboxPrimitive.Root>
-));
+);

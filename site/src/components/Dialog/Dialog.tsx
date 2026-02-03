@@ -8,8 +8,8 @@ import {
 	type ComponentPropsWithoutRef,
 	type ElementRef,
 	type FC,
-	forwardRef,
 	type HTMLAttributes,
+	type Ref,
 } from "react";
 import { cn } from "utils/cn";
 
@@ -21,10 +21,13 @@ const DialogPortal = DialogPrimitive.Portal;
 
 export const DialogClose = DialogPrimitive.Close;
 
-const DialogOverlay = forwardRef<
-	ElementRef<typeof DialogPrimitive.Overlay>,
-	ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
+const DialogOverlay = ({
+	className,
+	ref,
+	...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay> & {
+	ref?: Ref<ElementRef<typeof DialogPrimitive.Overlay>>;
+}) => (
 	<DialogPrimitive.Overlay
 		ref={ref}
 		className={cn(
@@ -35,7 +38,7 @@ const DialogOverlay = forwardRef<
 		)}
 		{...props}
 	/>
-));
+);
 
 const dialogVariants = cva(
 	`fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg gap-6
@@ -63,10 +66,15 @@ interface DialogContentProps
 	extends ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
 		VariantProps<typeof dialogVariants> {}
 
-export const DialogContent = forwardRef<
-	ElementRef<typeof DialogPrimitive.Content>,
-	DialogContentProps
->(({ className, variant, children, ...props }, ref) => (
+export const DialogContent = ({
+	className,
+	variant,
+	children,
+	ref,
+	...props
+}: DialogContentProps & {
+	ref?: Ref<ElementRef<typeof DialogPrimitive.Content>>;
+}) => (
 	<DialogPortal>
 		<DialogOverlay />
 		<DialogPrimitive.Content
@@ -77,7 +85,7 @@ export const DialogContent = forwardRef<
 			{children}
 		</DialogPrimitive.Content>
 	</DialogPortal>
-));
+);
 
 export const DialogHeader: FC<HTMLAttributes<HTMLDivElement>> = ({
 	className,
@@ -105,10 +113,13 @@ export const DialogFooter: FC<HTMLAttributes<HTMLDivElement>> = ({
 	/>
 );
 
-export const DialogTitle = forwardRef<
-	ElementRef<typeof DialogPrimitive.Title>,
-	ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
+export const DialogTitle = ({
+	className,
+	ref,
+	...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Title> & {
+	ref?: Ref<ElementRef<typeof DialogPrimitive.Title>>;
+}) => (
 	<DialogPrimitive.Title
 		ref={ref}
 		className={cn(
@@ -117,15 +128,18 @@ export const DialogTitle = forwardRef<
 		)}
 		{...props}
 	/>
-));
+);
 
-export const DialogDescription = forwardRef<
-	ElementRef<typeof DialogPrimitive.Description>,
-	ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
+export const DialogDescription = ({
+	className,
+	ref,
+	...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Description> & {
+	ref?: Ref<ElementRef<typeof DialogPrimitive.Description>>;
+}) => (
 	<DialogPrimitive.Description
 		ref={ref}
 		className={cn("text-sm text-content-secondary font-medium", className)}
 		{...props}
 	/>
-));
+);

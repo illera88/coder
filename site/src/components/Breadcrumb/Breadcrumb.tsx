@@ -8,23 +8,27 @@ import {
 	type ComponentProps,
 	type ComponentPropsWithoutRef,
 	type FC,
-	forwardRef,
 	type ReactNode,
+	type Ref,
 } from "react";
 import { cn } from "utils/cn";
 
-export const Breadcrumb = forwardRef<
-	HTMLElement,
-	ComponentPropsWithoutRef<"nav"> & {
-		separator?: ReactNode;
-	}
->(({ ...props }, ref) => <nav ref={ref} aria-label="breadcrumb" {...props} />);
+export const Breadcrumb = ({
+	ref,
+	...props
+}: ComponentPropsWithoutRef<"nav"> & {
+	separator?: ReactNode;
+	ref?: Ref<HTMLElement>;
+}) => <nav ref={ref} aria-label="breadcrumb" {...props} />;
 Breadcrumb.displayName = "Breadcrumb";
 
-export const BreadcrumbList = forwardRef<
-	HTMLOListElement,
-	ComponentPropsWithoutRef<"ol">
->(({ className, ...props }, ref) => (
+export const BreadcrumbList = ({
+	className,
+	ref,
+	...props
+}: ComponentPropsWithoutRef<"ol"> & {
+	ref?: Ref<HTMLOListElement>;
+}) => (
 	<ol
 		ref={ref}
 		className={cn(
@@ -33,12 +37,15 @@ export const BreadcrumbList = forwardRef<
 		)}
 		{...props}
 	/>
-));
+);
 
-export const BreadcrumbItem = forwardRef<
-	HTMLLIElement,
-	ComponentPropsWithoutRef<"li">
->(({ className, ...props }, ref) => (
+export const BreadcrumbItem = ({
+	className,
+	ref,
+	...props
+}: ComponentPropsWithoutRef<"li"> & {
+	ref?: Ref<HTMLLIElement>;
+}) => (
 	<li
 		ref={ref}
 		className={cn(
@@ -47,39 +54,45 @@ export const BreadcrumbItem = forwardRef<
 		)}
 		{...props}
 	/>
-));
+);
 
-export const BreadcrumbLink = forwardRef<
-	HTMLAnchorElement,
-	ComponentPropsWithoutRef<"a"> & {
-		asChild?: boolean;
-	}
->(({ asChild, className, ...props }, ref) => {
+export const BreadcrumbLink = ({
+	asChild,
+	className,
+	ref,
+	...props
+}: ComponentPropsWithoutRef<"a"> & {
+	asChild?: boolean;
+	ref?: Ref<HTMLAnchorElement>;
+}) => {
 	const Comp = asChild ? Slot : "a";
 
 	return (
 		<Comp
 			ref={ref}
 			className={cn(
-				"text-content-secondary transition-colors hover:text-content-primary no-underline hover:underline",
+				"transition-colors font-normal text-content-link hover:text-content-primary",
 				className,
 			)}
 			{...props}
 		/>
 	);
-});
+};
 
-export const BreadcrumbPage = forwardRef<
-	HTMLSpanElement,
-	ComponentPropsWithoutRef<"span">
->(({ className, ...props }, ref) => (
+export const BreadcrumbPage = ({
+	className,
+	ref,
+	...props
+}: ComponentPropsWithoutRef<"span"> & {
+	ref?: Ref<HTMLSpanElement>;
+}) => (
 	<span
 		ref={ref}
 		aria-current="page"
 		className={cn("flex items-center gap-2 text-content-secondary", className)}
 		{...props}
 	/>
-));
+);
 
 export const BreadcrumbSeparator: FC<ComponentProps<"li">> = ({
 	children,

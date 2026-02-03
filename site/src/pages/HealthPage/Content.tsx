@@ -10,9 +10,9 @@ import {
 	type ComponentProps,
 	cloneElement,
 	type FC,
-	forwardRef,
 	type HTMLAttributes,
 	type ReactElement,
+	type Ref,
 } from "react";
 import { docs } from "utils/docs";
 import { healthyColor } from "./healthyColor";
@@ -159,9 +159,13 @@ type PillProps = HTMLAttributes<HTMLDivElement> & {
 	icon: ReactElement<HTMLAttributes<HTMLElement>>;
 };
 
-export const Pill = forwardRef<HTMLDivElement, PillProps>((props, ref) => {
+export const Pill = ({
+	icon,
+	children,
+	ref,
+	...divProps
+}: PillProps & { ref?: Ref<HTMLDivElement> }) => {
 	const theme = useTheme();
-	const { icon, children, ...divProps } = props;
 
 	return (
 		<div
@@ -184,7 +188,7 @@ export const Pill = forwardRef<HTMLDivElement, PillProps>((props, ref) => {
 			{children}
 		</div>
 	);
-});
+};
 
 type BooleanPillProps = Omit<ComponentProps<typeof Pill>, "icon" | "value"> & {
 	value: boolean | null;
