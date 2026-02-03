@@ -13,11 +13,9 @@ export const SelectGroup = SelectPrimitive.Group;
 
 export const SelectValue = SelectPrimitive.Value;
 
-export type SelectTriggerProps = React.ComponentPropsWithoutRef<
+export type SelectTriggerProps = React.ComponentPropsWithRef<
 	typeof SelectPrimitive.Trigger
-> & {
-	ref?: React.Ref<React.ComponentRef<typeof SelectPrimitive.Trigger>>;
-};
+>;
 
 export const SelectTrigger = ({
 	className,
@@ -51,9 +49,7 @@ const SelectScrollUpButton = ({
 	className,
 	ref,
 	...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton> & {
-	ref?: React.Ref<React.ComponentRef<typeof SelectPrimitive.ScrollUpButton>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof SelectPrimitive.ScrollUpButton>) => (
 	<SelectPrimitive.ScrollUpButton
 		ref={ref}
 		className={cn(
@@ -71,9 +67,7 @@ const SelectScrollDownButton = ({
 	className,
 	ref,
 	...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton> & {
-	ref?: React.Ref<React.ComponentRef<typeof SelectPrimitive.ScrollDownButton>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof SelectPrimitive.ScrollDownButton>) => (
 	<SelectPrimitive.ScrollDownButton
 		ref={ref}
 		className={cn(
@@ -94,9 +88,7 @@ export const SelectContent = ({
 	position = "popper",
 	ref,
 	...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> & {
-	ref?: React.Ref<React.ComponentRef<typeof SelectPrimitive.Content>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof SelectPrimitive.Content>) => (
 	<SelectPrimitive.Portal>
 		<SelectPrimitive.Content
 			ref={ref}
@@ -134,9 +126,7 @@ export const SelectLabel = ({
 	className,
 	ref,
 	...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label> & {
-	ref?: React.Ref<React.ComponentRef<typeof SelectPrimitive.Label>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof SelectPrimitive.Label>) => (
 	<SelectPrimitive.Label
 		ref={ref}
 		className={cn("px-2 py-1.5 text-sm font-semibold", className)}
@@ -150,9 +140,7 @@ export const SelectItem = ({
 	children,
 	ref,
 	...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item> & {
-	ref?: React.Ref<React.ComponentRef<typeof SelectPrimitive.Item>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof SelectPrimitive.Item>) => (
 	<SelectPrimitive.Item
 		ref={ref}
 		className={cn(
@@ -177,9 +165,7 @@ const SelectSeparator = ({
 	className,
 	ref,
 	...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator> & {
-	ref?: React.Ref<React.ComponentRef<typeof SelectPrimitive.Separator>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof SelectPrimitive.Separator>) => (
 	<SelectPrimitive.Separator
 		ref={ref}
 		className={cn("-mx-1 my-1 h-px bg-muted", className)}

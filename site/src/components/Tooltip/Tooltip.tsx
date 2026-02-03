@@ -16,7 +16,7 @@ export const TooltipTrigger = TooltipPrimitive.Trigger;
 
 export const TooltipArrow = TooltipPrimitive.Arrow;
 
-export type TooltipContentProps = React.ComponentPropsWithoutRef<
+type TooltipContentProps = React.ComponentPropsWithRef<
 	typeof TooltipPrimitive.Content
 > & {
 	disablePortal?: boolean;
@@ -28,9 +28,7 @@ export const TooltipContent = ({
 	disablePortal,
 	ref,
 	...props
-}: TooltipContentProps & {
-	ref?: React.Ref<React.ComponentRef<typeof TooltipPrimitive.Content>>;
-}) => {
+}: TooltipContentProps) => {
 	const content = (
 		<TooltipPrimitive.Content
 			ref={ref}

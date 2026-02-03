@@ -8,7 +8,6 @@ import {
 	type FC,
 	type HTMLAttributes,
 	type ReactElement,
-	type Ref,
 } from "react";
 import { cn } from "utils/cn";
 
@@ -87,20 +86,22 @@ export const TopbarAvatar: FC<AvatarProps> = (props) => {
 	return <Avatar {...props} variant="icon" size="md" />;
 };
 
-type TopbarIconProps = HTMLAttributes<HTMLOrSVGElement>;
+type TopbarIconProps = HTMLAttributes<HTMLOrSVGElement> & {
+	ref?: React.Ref<HTMLOrSVGElement>;
+};
 
 export const TopbarIcon = ({
 	children,
 	className,
 	ref,
 	...restProps
-}: TopbarIconProps & { ref?: Ref<HTMLOrSVGElement> }) => {
+}: TopbarIconProps) => {
 	const theme = useTheme();
 
 	return cloneElement(
 		children as ReactElement<
 			HTMLAttributes<HTMLOrSVGElement> & {
-				ref: Ref<HTMLOrSVGElement>;
+				ref?: React.Ref<HTMLOrSVGElement>;
 			}
 		>,
 		{

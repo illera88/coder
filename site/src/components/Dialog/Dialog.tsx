@@ -9,8 +9,8 @@ import {
 	type ElementRef,
 	type FC,
 	type HTMLAttributes,
-	type Ref,
 } from "react";
+import * as React from "react";
 import { cn } from "utils/cn";
 
 export const Dialog = DialogPrimitive.Root;
@@ -25,9 +25,7 @@ const DialogOverlay = ({
 	className,
 	ref,
 	...props
-}: ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay> & {
-	ref?: Ref<ElementRef<typeof DialogPrimitive.Overlay>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof DialogPrimitive.Overlay>) => (
 	<DialogPrimitive.Overlay
 		ref={ref}
 		className={cn(
@@ -72,9 +70,8 @@ export const DialogContent = ({
 	children,
 	ref,
 	...props
-}: DialogContentProps & {
-	ref?: Ref<ElementRef<typeof DialogPrimitive.Content>>;
-}) => (
+}: DialogContentProps &
+	React.ComponentPropsWithRef<typeof DialogPrimitive.Content>) => (
 	<DialogPortal>
 		<DialogOverlay />
 		<DialogPrimitive.Content
@@ -117,9 +114,7 @@ export const DialogTitle = ({
 	className,
 	ref,
 	...props
-}: ComponentPropsWithoutRef<typeof DialogPrimitive.Title> & {
-	ref?: Ref<ElementRef<typeof DialogPrimitive.Title>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof DialogPrimitive.Title>) => (
 	<DialogPrimitive.Title
 		ref={ref}
 		className={cn(
@@ -134,9 +129,7 @@ export const DialogDescription = ({
 	className,
 	ref,
 	...props
-}: ComponentPropsWithoutRef<typeof DialogPrimitive.Description> & {
-	ref?: Ref<ElementRef<typeof DialogPrimitive.Description>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof DialogPrimitive.Description>) => (
 	<DialogPrimitive.Description
 		ref={ref}
 		className={cn("text-sm text-content-secondary font-medium", className)}

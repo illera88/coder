@@ -2,7 +2,7 @@
  * Copied from shadc/ui on 11/13/2024
  * @see {@link https://ui.shadcn.com/docs/components/input}
  */
-import { type Ref } from "react";
+import * as React from "react";
 import { cn } from "utils/cn";
 
 export const Input = ({
@@ -10,9 +10,7 @@ export const Input = ({
 	type,
 	ref,
 	...props
-}: React.ComponentProps<"input"> & {
-	ref?: Ref<HTMLInputElement>;
-}) => {
+}: React.ComponentPropsWithRef<"input">) => {
 	return (
 		<input
 			type={type}

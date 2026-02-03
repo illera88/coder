@@ -19,7 +19,7 @@ import dayjs, { type Dayjs } from "dayjs";
 import { useTime } from "hooks/useTime";
 import { ClockIcon, MinusIcon, PlusIcon } from "lucide-react";
 import { getWorkspaceActivityStatus } from "modules/workspaces/activity";
-import { type FC, type ReactNode, type Ref, useRef, useState } from "react";
+import { type FC, type ReactNode, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "react-query";
 import { Link as RouterLink } from "react-router";
 import {
@@ -269,7 +269,7 @@ const AutostopDisplay: FC<AutostopDisplayProps> = ({
 const ScheduleSettingsLink = ({
 	ref,
 	...props
-}: LinkProps & { ref?: Ref<HTMLAnchorElement> }) => {
+}: LinkProps & React.ComponentPropsWithRef<"a">) => {
 	return (
 		<Link
 			ref={ref}

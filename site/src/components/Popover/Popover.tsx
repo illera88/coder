@@ -3,11 +3,7 @@
  * @see {@link https://ui.shadcn.com/docs/components/popover}
  */
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import {
-	type ComponentPropsWithoutRef,
-	type ElementRef,
-	type Ref,
-} from "react";
+import * as React from "react";
 import { cn } from "utils/cn";
 
 export type PopoverContentProps = PopoverPrimitive.PopoverContentProps;
@@ -26,9 +22,7 @@ export const PopoverContent = ({
 	sideOffset = 4,
 	ref,
 	...props
-}: ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & {
-	ref?: Ref<ElementRef<typeof PopoverPrimitive.Content>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof PopoverPrimitive.Content>) => (
 	<PopoverPrimitive.Portal>
 		<PopoverPrimitive.Content
 			ref={ref}

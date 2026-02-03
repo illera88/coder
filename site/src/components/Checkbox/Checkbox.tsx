@@ -14,9 +14,7 @@ export const Checkbox = ({
 	className,
 	ref,
 	...props
-}: React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root> & {
-	ref?: React.Ref<React.ComponentRef<typeof CheckboxPrimitive.Root>>;
-}) => (
+}: React.ComponentPropsWithRef<typeof CheckboxPrimitive.Root>) => (
 	<CheckboxPrimitive.Root
 		ref={ref}
 		className={cn(

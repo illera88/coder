@@ -1,7 +1,7 @@
 import { Slot, Slottable } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { SquareArrowOutUpRightIcon } from "lucide-react";
-import { type Ref } from "react";
+import * as React from "react";
 import { cn } from "utils/cn";
 
 const linkVariants = cva(
@@ -30,6 +30,10 @@ interface LinkProps
 	showExternalIcon?: boolean;
 }
 
+type LinkWithRefProps = LinkProps & {
+	ref?: React.Ref<HTMLAnchorElement>;
+};
+
 export const Link = ({
 	className,
 	children,
@@ -38,7 +42,7 @@ export const Link = ({
 	showExternalIcon = true,
 	ref,
 	...props
-}: LinkProps & { ref?: Ref<HTMLAnchorElement> }) => {
+}: LinkWithRefProps) => {
 	const Comp = asChild ? Slot : "a";
 	return (
 		<Comp
