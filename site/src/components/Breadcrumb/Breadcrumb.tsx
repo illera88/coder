@@ -4,50 +4,36 @@
  */
 import { Slot } from "@radix-ui/react-slot";
 import { MoreHorizontal } from "lucide-react";
-import {
-	type ComponentProps,
-	type ComponentPropsWithoutRef,
-	type FC,
-	type ReactNode,
-	type Ref,
-} from "react";
 import { cn } from "utils/cn";
 
-export const Breadcrumb = ({
-	ref,
-	...props
-}: ComponentPropsWithoutRef<"nav"> & {
-	separator?: ReactNode;
-	ref?: Ref<HTMLElement>;
-}) => <nav ref={ref} aria-label="breadcrumb" {...props} />;
-Breadcrumb.displayName = "Breadcrumb";
+type BreadcrumbProps = React.ComponentPropsWithRef<"nav"> & {
+	separator?: React.ReactNode;
+};
 
-export const BreadcrumbList = ({
-	className,
-	ref,
-	...props
-}: ComponentPropsWithoutRef<"ol"> & {
-	ref?: Ref<HTMLOListElement>;
-}) => (
-	<ol
-		ref={ref}
-		className={cn(
-			"flex flex-wrap items-center text-sm pl-6 my-4 gap-1.5 break-words font-medium list-none sm:gap-2.5",
-			className,
-		)}
-		{...props}
-	/>
-);
+export const Breadcrumb: React.FC<BreadcrumbProps> = ({ ...props }) => {
+	return <nav aria-label="breadcrumb" {...props} />;
+};
 
-export const BreadcrumbItem = ({
+export const BreadcrumbList: React.FC<React.ComponentPropsWithRef<"ol">> = ({
 	className,
-	ref,
 	...props
-}: ComponentPropsWithoutRef<"li"> & {
-	ref?: Ref<HTMLLIElement>;
+}) => {
+	return (
+		<ol
+			className={cn(
+				"flex flex-wrap items-center text-sm pl-6 my-4 gap-1.5 break-words font-medium list-none sm:gap-2.5",
+				className,
+			)}
+			{...props}
+		/>
+	);
+};
+
+export const BreadcrumbItem: React.FC<React.ComponentPropsWithRef<"li">> = ({
+	className,
+	...props
 }) => (
 	<li
-		ref={ref}
 		className={cn(
 			"inline-flex items-center gap-1.5 text-content-secondary",
 			className,
@@ -56,20 +42,19 @@ export const BreadcrumbItem = ({
 	/>
 );
 
-export const BreadcrumbLink = ({
+type BreadcrumbLinkProps = React.ComponentPropsWithRef<"a"> & {
+	asChild?: boolean;
+};
+
+export const BreadcrumbLink: React.FC<BreadcrumbLinkProps> = ({
 	asChild,
 	className,
-	ref,
 	...props
-}: ComponentPropsWithoutRef<"a"> & {
-	asChild?: boolean;
-	ref?: Ref<HTMLAnchorElement>;
 }) => {
 	const Comp = asChild ? Slot : "a";
 
 	return (
 		<Comp
-			ref={ref}
 			className={cn(
 				"transition-colors font-normal text-content-link hover:text-content-primary",
 				className,
@@ -79,26 +64,20 @@ export const BreadcrumbLink = ({
 	);
 };
 
-export const BreadcrumbPage = ({
+export const BreadcrumbPage: React.FC<React.ComponentPropsWithRef<"span">> = ({
 	className,
-	ref,
 	...props
-}: ComponentPropsWithoutRef<"span"> & {
-	ref?: Ref<HTMLSpanElement>;
 }) => (
 	<span
-		ref={ref}
 		aria-current="page"
 		className={cn("flex items-center gap-2 text-content-secondary", className)}
 		{...props}
 	/>
 );
 
-export const BreadcrumbSeparator: FC<ComponentProps<"li">> = ({
-	children,
-	className,
-	...props
-}) => (
+export const BreadcrumbSeparator: React.FC<
+	Omit<React.ComponentPropsWithRef<"li">, "children">
+> = ({ className, ...props }) => (
 	<li
 		role="presentation"
 		aria-hidden="true"
@@ -112,10 +91,9 @@ export const BreadcrumbSeparator: FC<ComponentProps<"li">> = ({
 	</li>
 );
 
-export const BreadcrumbEllipsis: FC<ComponentProps<"span">> = ({
-	className,
-	...props
-}) => (
+export const BreadcrumbEllipsis: React.FC<
+	React.ComponentPropsWithRef<"span">
+> = ({ className, ...props }) => (
 	<span
 		role="presentation"
 		aria-hidden="true"

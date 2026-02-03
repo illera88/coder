@@ -1,13 +1,7 @@
 import { Badge } from "components/Badge/Badge";
 import { Stack } from "components/Stack/Stack";
-import {
-	type FC,
-	type HTMLAttributes,
-	type PropsWithChildren,
-	type Ref,
-} from "react";
 
-export const EnabledBadge: FC = () => {
+export const EnabledBadge: React.FC = () => {
 	return (
 		<Badge className="option-enabled" variant="green" border="solid">
 			Enabled
@@ -15,24 +9,25 @@ export const EnabledBadge: FC = () => {
 	);
 };
 
-export const EntitledBadge: FC = () => {
+export const EntitledBadge: React.FC = () => {
 	return (
 		<Badge border="solid" variant="green">
 			Entitled
 		</Badge>
 	);
 };
-export const DisabledBadge: FC<
-	HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement> }
-> = ({ ref, ...props }) => {
+
+export const DisabledBadge: React.FC<React.ComponentPropsWithRef<"div">> = ({
+	...props
+}) => {
 	return (
-		<Badge ref={ref} {...props} className="option-disabled">
+		<Badge {...props} className="option-disabled">
 			Disabled
 		</Badge>
 	);
 };
 
-export const EnterpriseBadge: FC = () => {
+export const EnterpriseBadge: React.FC = () => {
 	return (
 		<Badge variant="info" border="solid">
 			Enterprise
@@ -44,7 +39,7 @@ interface PremiumBadgeProps {
 	children?: React.ReactNode;
 }
 
-export const PremiumBadge: FC<PremiumBadgeProps> = ({
+export const PremiumBadge: React.FC<PremiumBadgeProps> = ({
 	children = "Premium",
 }) => {
 	return (
@@ -54,7 +49,7 @@ export const PremiumBadge: FC<PremiumBadgeProps> = ({
 	);
 };
 
-export const PreviewBadge: FC = () => {
+export const PreviewBadge: React.FC = () => {
 	return (
 		<Badge variant="purple" border="solid">
 			Preview
@@ -62,7 +57,7 @@ export const PreviewBadge: FC = () => {
 	);
 };
 
-export const AlphaBadge: FC = () => {
+export const AlphaBadge: React.FC = () => {
 	return (
 		<Badge variant="purple" border="solid">
 			Alpha
@@ -70,7 +65,7 @@ export const AlphaBadge: FC = () => {
 	);
 };
 
-export const DeprecatedBadge: FC = () => {
+export const DeprecatedBadge: React.FC = () => {
 	return (
 		<Badge variant="warning" border="solid">
 			Deprecated
@@ -78,7 +73,7 @@ export const DeprecatedBadge: FC = () => {
 	);
 };
 
-export const Badges: FC<PropsWithChildren> = ({ children }) => {
+export const Badges: React.FC<React.PropsWithChildren> = ({ children }) => {
 	return (
 		<Stack
 			css={{ margin: "0 0 16px" }}

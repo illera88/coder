@@ -4,7 +4,6 @@
  */
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { type Ref } from "react";
 import { cn } from "utils/cn";
 
 const badgeVariants = cva(
@@ -58,14 +57,13 @@ const badgeVariants = cva(
 	},
 );
 
-interface BadgeProps
-	extends React.HTMLAttributes<HTMLDivElement>,
-		VariantProps<typeof badgeVariants> {
-	asChild?: boolean;
-	ref?: Ref<HTMLDivElement>;
-}
+type BadgeProps = React.HTMLAttributes<HTMLDivElement> &
+	VariantProps<typeof badgeVariants> & {
+		asChild?: boolean;
+		ref?: React.Ref<HTMLDivElement>;
+	};
 
-export const Badge = ({
+export const Badge: React.FC<BadgeProps> = ({
 	className,
 	variant,
 	size,
@@ -74,7 +72,7 @@ export const Badge = ({
 	asChild = false,
 	ref,
 	...props
-}: BadgeProps) => {
+}) => {
 	const Comp = asChild ? Slot : "div";
 
 	return (

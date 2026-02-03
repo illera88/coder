@@ -131,7 +131,9 @@ export const Alert: FC<AlertProps> = ({
 	);
 };
 
-export const AlertDetail: FC<PropsWithChildren> = ({ children }) => {
+export const AlertDetail: React.FC<React.PropsWithChildren> = ({
+	children,
+}) => {
 	return (
 		<span className="m-0 text-sm" data-chromatic="ignore">
 			{children}
@@ -139,16 +141,9 @@ export const AlertDetail: FC<PropsWithChildren> = ({ children }) => {
 	);
 };
 
-export const AlertTitle = ({
+export const AlertTitle: React.FC<React.ComponentPropsWithRef<"h1">> = ({
 	className,
-	ref,
 	...props
-}: React.HTMLAttributes<HTMLHeadingElement> & {
-	ref?: Ref<HTMLHeadingElement>;
 }) => (
-	<h1
-		ref={ref}
-		className={cn("m-0 mb-1 text-sm font-medium", className)}
-		{...props}
-	/>
+	<h1 className={cn("m-0 mb-1 text-sm font-medium", className)} {...props} />
 );
