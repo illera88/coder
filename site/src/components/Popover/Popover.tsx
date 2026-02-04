@@ -3,7 +3,6 @@
  * @see {@link https://ui.shadcn.com/docs/components/popover}
  */
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import * as React from "react";
 import { cn } from "utils/cn";
 
 export type PopoverContentProps = PopoverPrimitive.PopoverContentProps;
@@ -16,21 +15,17 @@ export const PopoverTrigger = PopoverPrimitive.Trigger;
 
 export const PopoverClose = PopoverPrimitive.PopoverClose;
 
-export const PopoverContent = ({
-	className,
-	align = "center",
-	sideOffset = 4,
-	ref,
-	...props
-}: React.ComponentPropsWithRef<typeof PopoverPrimitive.Content>) => (
-	<PopoverPrimitive.Portal>
-		<PopoverPrimitive.Content
-			ref={ref}
-			align={align}
-			sideOffset={sideOffset}
-			collisionPadding={16}
-			className={cn(
-				`z-50 w-72 rounded-md border border-solid bg-surface-primary
+export const PopoverContent: React.FC<
+	React.ComponentPropsWithRef<typeof PopoverPrimitive.Content>
+> = ({ className, align = "center", sideOffset = 4, ...props }) => {
+	return (
+		<PopoverPrimitive.Portal>
+			<PopoverPrimitive.Content
+				align={align}
+				sideOffset={sideOffset}
+				collisionPadding={16}
+				className={cn(
+					`z-50 w-72 rounded-md border border-solid bg-surface-primary
 				text-content-primary shadow-md outline-none
 				max-h-[var(--radix-popper-available-height)] overflow-y-auto
 				data-[state=open]:animate-in data-[state=closed]:animate-out
@@ -38,9 +33,10 @@ export const PopoverContent = ({
 				data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95
 				data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2
 				data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2`,
-				className,
-			)}
-			{...props}
-		/>
-	</PopoverPrimitive.Portal>
-);
+					className,
+				)}
+				{...props}
+			/>
+		</PopoverPrimitive.Portal>
+	);
+};
