@@ -1,5 +1,5 @@
 import type { CSSObject } from "@emotion/react";
-import { type Ref } from "react";
+import type { Ref } from "react";
 
 /**
  * @deprecated Stack component is deprecated. Use Tailwind flex utilities instead.

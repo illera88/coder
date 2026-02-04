@@ -3,12 +3,12 @@
  * @see {@link https://ui.shadcn.com/docs/components/chart}
  */
 import {
+	type CSSProperties,
 	createContext,
+	type Ref,
 	useContext,
 	useId,
 	useMemo,
-	type CSSProperties,
-	type Ref,
 } from "react";
 import * as RechartsPrimitive from "recharts";
 import { cn } from "utils/cn";
@@ -276,7 +276,7 @@ export const ChartTooltipContent = ({
 	);
 };
 
-const ChartLegendContent = ({
+const _ChartLegendContent = ({
 	className,
 	hideIcon = false,
 	payload,

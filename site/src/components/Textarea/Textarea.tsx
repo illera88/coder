@@ -2,7 +2,7 @@
  * Copied from shadc/ui on 11/13/2024
  * @see {@link https://ui.shadcn.com/docs/components/textarea}
  */
-import * as React from "react";
+import type * as React from "react";
 import { cn } from "utils/cn";
 
 export const Textarea = ({

@@ -6,7 +6,7 @@ import type { DialogProps } from "@radix-ui/react-dialog";
 import { Command as CommandPrimitive } from "cmdk";
 import { Dialog, DialogContent } from "components/Dialog/Dialog";
 import { Search } from "lucide-react";
-import { type FC, type Ref } from "react";
+import type { FC } from "react";
 import { cn } from "utils/cn";
 
 export const Command = ({

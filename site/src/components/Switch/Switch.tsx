@@ -3,7 +3,7 @@
  * @see {@link https://ui.shadcn.com/docs/components/switch}
  */
 import * as SwitchPrimitives from "@radix-ui/react-switch";
-import * as React from "react";
+import type * as React from "react";
 import { cn } from "utils/cn";
 
 export const Switch = ({

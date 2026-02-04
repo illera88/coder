@@ -1,5 +1,5 @@
 import type { Interpolation, Theme } from "@emotion/react";
-import { type ButtonHTMLAttributes, type HTMLProps, type Ref } from "react";
+import type { ButtonHTMLAttributes, HTMLProps, Ref } from "react";
 export type BarColors = {
 	stroke: string;
 	fill: string;

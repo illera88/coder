@@ -1,6 +1,6 @@
 import { Button, type ButtonProps } from "components/Button/Button";
 import { BellIcon } from "lucide-react";
-import { type Ref } from "react";
+import type { Ref } from "react";
 import { cn } from "utils/cn";
 import { UnreadBadge } from "./UnreadBadge";
 

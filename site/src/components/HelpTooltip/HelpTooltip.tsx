@@ -14,12 +14,12 @@ import {
 	TooltipTrigger,
 } from "components/Tooltip/Tooltip";
 import { CircleHelpIcon, ExternalLinkIcon } from "lucide-react";
-import {
-	type FC,
-	type HTMLAttributes,
-	type PropsWithChildren,
-	type ReactNode,
-	type Ref,
+import type {
+	FC,
+	HTMLAttributes,
+	PropsWithChildren,
+	ReactNode,
+	Ref,
 } from "react";
 import { cn } from "utils/cn";
 

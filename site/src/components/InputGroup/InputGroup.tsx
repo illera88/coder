@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { Button, type ButtonProps } from "components/Button/Button";
 import { Input } from "components/Input/Input";
-import { type FC, type Ref } from "react";
+import type { FC, Ref } from "react";
 import { cn } from "utils/cn";
 
 const InputGroup: FC<React.ComponentProps<"div">> = ({

@@ -1,5 +1,5 @@
 import { Button, type ButtonProps } from "components/Button/Button";
-import { type Ref } from "react";
+import type { Ref } from "react";
 
 export const AgentButton = ({
 	ref,

@@ -1,5 +1,5 @@
 import { TableRow, type TableRowProps } from "components/Table/Table";
-import { type Ref } from "react";
+import type { Ref } from "react";
 import { cn } from "utils/cn";
 
 interface TimelineEntryProps extends TableRowProps {

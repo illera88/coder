@@ -4,7 +4,7 @@
  */
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 
-import * as React from "react";
+import type * as React from "react";
 import { cn } from "utils/cn";
 
 export const RadioGroup = ({

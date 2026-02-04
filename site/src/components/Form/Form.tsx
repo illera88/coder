@@ -7,7 +7,6 @@ import {
 	type FC,
 	type HTMLProps,
 	type ReactNode,
-	type Ref,
 	useContext,
 } from "react";
 import { cn } from "utils/cn";
