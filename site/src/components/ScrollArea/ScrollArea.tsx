@@ -8,10 +8,9 @@ import { cn } from "utils/cn";
 
 export const ScrollArea: React.FC<
 	React.ComponentPropsWithRef<typeof ScrollAreaPrimitive.Root>
-> = ({ className, children, ref, ...props }) => {
+> = ({ className, children, ...props }) => {
 	return (
 		<ScrollAreaPrimitive.Root
-			ref={ref}
 			className={cn("relative overflow-hidden", className)}
 			{...props}
 		>
@@ -26,10 +25,9 @@ export const ScrollArea: React.FC<
 
 export const ScrollBar: React.FC<
 	React.ComponentPropsWithRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>
-> = ({ className, orientation = "vertical", ref, ...props }) => {
+> = ({ className, orientation = "vertical", ...props }) => {
 	return (
 		<ScrollAreaPrimitive.ScrollAreaScrollbar
-			ref={ref}
 			orientation={orientation}
 			className={cn(
 				"border-0 border-solid border-border flex touch-none select-none transition-colors",
