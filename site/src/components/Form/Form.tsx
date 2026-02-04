@@ -76,9 +76,10 @@ interface FormSectionProps {
 	};
 	alpha?: boolean;
 	deprecated?: boolean;
+	ref?: React.Ref<HTMLElement>;
 }
 
-export const FormSection = ({
+export const FormSection: FC<FormSectionProps> = ({
 	children,
 	title,
 	description,
@@ -86,7 +87,7 @@ export const FormSection = ({
 	alpha = false,
 	deprecated = false,
 	ref,
-}: FormSectionProps & { ref?: Ref<HTMLDivElement> }) => {
+}) => {
 	const { direction } = useContext(FormContext);
 
 	return (
