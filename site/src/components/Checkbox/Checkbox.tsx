@@ -11,31 +11,33 @@ import { cn } from "utils/cn";
  */
 export const Checkbox: React.FC<
 	React.ComponentPropsWithRef<typeof CheckboxPrimitive.Root>
-> = ({ className, ...props }) => (
-	<CheckboxPrimitive.Root
-		className={cn(
-			`peer size-[18px] shrink-0 rounded-sm border border-border border-solid
+> = ({ className, ...props }) => {
+	return (
+		<CheckboxPrimitive.Root
+			className={cn(
+				`peer size-[18px] shrink-0 rounded-sm border border-border border-solid
     	focus-visible:outline-none focus-visible:ring-2
     	focus-visible:ring-content-link focus-visible:ring-offset-4 focus-visible:ring-offset-surface-primary
     	disabled:cursor-not-allowed disabled:bg-surface-primary disabled:data-[state=checked]:bg-surface-tertiary
     	data-[state=unchecked]:bg-surface-primary
     	data-[state=checked]:bg-surface-invert-primary data-[state=checked]:text-content-invert
     	hover:enabled:border-border-hover hover:data-[state=checked]:bg-surface-invert-secondary`,
-			className,
-		)}
-		{...props}
-	>
-		<CheckboxPrimitive.Indicator
-			className={cn("flex items-center justify-center text-current relative")}
+				className,
+			)}
+			{...props}
 		>
-			<div className="flex">
-				{(props.checked === true || props.defaultChecked === true) && (
-					<Check className="w-4 h-4" strokeWidth={2.5} />
-				)}
-				{props.checked === "indeterminate" && (
-					<Minus className="w-4 h-4" strokeWidth={2.5} />
-				)}
-			</div>
-		</CheckboxPrimitive.Indicator>
-	</CheckboxPrimitive.Root>
-);
+			<CheckboxPrimitive.Indicator
+				className={cn("flex items-center justify-center text-current relative")}
+			>
+				<div className="flex">
+					{(props.checked === true || props.defaultChecked === true) && (
+						<Check className="w-4 h-4" strokeWidth={2.5} />
+					)}
+					{props.checked === "indeterminate" && (
+						<Minus className="w-4 h-4" strokeWidth={2.5} />
+					)}
+				</div>
+			</CheckboxPrimitive.Indicator>
+		</CheckboxPrimitive.Root>
+	);
+};
