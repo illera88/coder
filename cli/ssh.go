@@ -1013,7 +1013,7 @@ func GetWorkspaceAndAgent(ctx context.Context, inv *serpent.Invocation, client *
 	if len(workspaceParts) >= 2 {
 		agentName = workspaceParts[1]
 	}
-	workspaceAgent, otherWorkspaceAgents, err := getWorkspaceAgent(workspace, agentName)
+	workspaceAgent, otherWorkspaceAgents, err := getWorkspaceAgent(workspace, agentName, client.URL)
 	if err != nil {
 		return workspace, codersdk.WorkspaceAgent{}, otherWorkspaceAgents, err
 	}
@@ -1021,7 +1021,7 @@ func GetWorkspaceAndAgent(ctx context.Context, inv *serpent.Invocation, client *
 	return workspace, workspaceAgent, otherWorkspaceAgents, nil
 }
 
-func getWorkspaceAgent(workspace codersdk.Workspace, agentName string) (workspaceAgent codersdk.WorkspaceAgent, otherAgents []codersdk.WorkspaceAgent, err error) {
+func getWorkspaceAgent(workspace codersdk.Workspace, agentName string, serverURL *url.URL) (workspaceAgent codersdk.WorkspaceAgent, otherAgents []codersdk.WorkspaceAgent, err error) {
 	resources := workspace.LatestBuild.Resources
 
 	var (
@@ -1037,7 +1037,10 @@ func getWorkspaceAgent(workspace codersdk.Workspace, agentName string) (workspac
 	if len(agents) == 0 {
 		// If the latest build failed, provide a more helpful error message
 		if workspace.LatestBuild.Job.Status == codersdk.ProvisionerJobFailed {
-			return codersdk.WorkspaceAgent{}, nil, xerrors.Errorf("workspace %q is in failed state", workspace.Name)
+			buildLink := buildWorkspaceBuildLink(serverURL, workspace)
+			return codersdk.WorkspaceAgent{}, nil, xerrors.Errorf(
+				"workspace %q is in failed state, the last build failed\n  See: %s\n  Run `coder start %s/%s` to attempt recovery",
+				workspace.Name, buildLink.String(), workspace.OwnerName, workspace.Name)
 		}
 		return codersdk.WorkspaceAgent{}, nil, xerrors.Errorf("workspace %q has no agents", workspace.Name)
 	}

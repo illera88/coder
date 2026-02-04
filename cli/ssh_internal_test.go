@@ -476,7 +476,8 @@ func Test_getWorkspaceAgent(t *testing.T) {
 		agent := createAgent("main")
 		workspace := createWorkspaceWithAgents([]codersdk.WorkspaceAgent{agent})
 
-		result, _, err := getWorkspaceAgent(workspace, "")
+		serverURL, _ := url.Parse(fakeServerURL)
+		result, _, err := getWorkspaceAgent(workspace, "", serverURL)
 		require.NoError(t, err)
 		assert.Equal(t, agent.ID, result.ID)
 		assert.Equal(t, "main", result.Name)
@@ -488,7 +489,8 @@ func Test_getWorkspaceAgent(t *testing.T) {
 		agent2 := createAgent("main2")
 		workspace := createWorkspaceWithAgents([]codersdk.WorkspaceAgent{agent1, agent2})
 
-		_, _, err := getWorkspaceAgent(workspace, "")
+		serverURL, _ := url.Parse(fakeServerURL)
+		_, _, err := getWorkspaceAgent(workspace, "", serverURL)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "multiple agents found")
 		assert.Contains(t, err.Error(), "available agents: [main1 main2]")
@@ -500,7 +502,8 @@ func Test_getWorkspaceAgent(t *testing.T) {
 		agent2 := createAgent("main2")
 		workspace := createWorkspaceWithAgents([]codersdk.WorkspaceAgent{agent1, agent2})
 
-		result, other, err := getWorkspaceAgent(workspace, "main1")
+		serverURL, _ := url.Parse(fakeServerURL)
+		result, other, err := getWorkspaceAgent(workspace, "main1", serverURL)
 		require.NoError(t, err)
 		assert.Equal(t, agent1.ID, result.ID)
 		assert.Equal(t, "main1", result.Name)
@@ -515,7 +518,8 @@ func Test_getWorkspaceAgent(t *testing.T) {
 		agent2 := createAgent("main2")
 		workspace := createWorkspaceWithAgents([]codersdk.WorkspaceAgent{agent1, agent2})
 
-		_, _, err := getWorkspaceAgent(workspace, "nonexistent")
+		serverURL, _ := url.Parse(fakeServerURL)
+		_, _, err := getWorkspaceAgent(workspace, "nonexistent", serverURL)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `agent not found by name "nonexistent"`)
 		assert.Contains(t, err.Error(), "available agents: [main1 main2]")
@@ -525,7 +529,8 @@ func Test_getWorkspaceAgent(t *testing.T) {
 		t.Parallel()
 		workspace := createWorkspaceWithAgents([]codersdk.WorkspaceAgent{})
 
-		_, _, err := getWorkspaceAgent(workspace, "")
+		serverURL, _ := url.Parse(fakeServerURL)
+		_, _, err := getWorkspaceAgent(workspace, "", serverURL)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `workspace "test-workspace" has no agents`)
 	})
@@ -538,7 +543,8 @@ func Test_getWorkspaceAgent(t *testing.T) {
 		agent3 := createAgent("krypton")
 		workspace := createWorkspaceWithAgents([]codersdk.WorkspaceAgent{agent2, agent1, agent3})
 
-		_, _, err := getWorkspaceAgent(workspace, "nonexistent")
+		serverURL, _ := url.Parse(fakeServerURL)
+		_, _, err := getWorkspaceAgent(workspace, "nonexistent", serverURL)
 		require.Error(t, err)
 		// Available agents should be sorted alphabetically.
 		assert.Contains(t, err.Error(), "available agents: [clark krypton zod]")

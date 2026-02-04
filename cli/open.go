@@ -513,7 +513,7 @@ func waitForAgentCond(ctx context.Context, client *codersdk.Client, workspace co
 	}
 
 	for workspace = range wc {
-		workspaceAgent, _, err = getWorkspaceAgent(workspace, workspaceAgent.Name)
+		workspaceAgent, _, err = getWorkspaceAgent(workspace, workspaceAgent.Name, client.URL)
 		if err != nil {
 			return workspace, workspaceAgent, xerrors.Errorf("get workspace agent: %w", err)
 		}
