@@ -4,19 +4,15 @@
  */
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
 import { Check, Minus } from "lucide-react";
-import * as React from "react";
 import { cn } from "utils/cn";
 
 /**
  * To allow for an indeterminate state the checkbox must be controlled, otherwise the checked prop would remain undefined
  */
-export const Checkbox = ({
-	className,
-	ref,
-	...props
-}: React.ComponentPropsWithRef<typeof CheckboxPrimitive.Root>) => (
+export const Checkbox: React.FC<
+	React.ComponentPropsWithRef<typeof CheckboxPrimitive.Root>
+> = ({ className, ...props }) => (
 	<CheckboxPrimitive.Root
-		ref={ref}
 		className={cn(
 			`peer size-[18px] shrink-0 rounded-sm border border-border border-solid
     	focus-visible:outline-none focus-visible:ring-2

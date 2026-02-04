@@ -275,9 +275,6 @@ export const ChartTooltipContent = ({
 		</div>
 	);
 };
-ChartTooltipContent.displayName = "ChartTooltip";
-
-const _ChartLegend = RechartsPrimitive.Legend;
 
 const ChartLegendContent = ({
 	className,
@@ -335,7 +332,6 @@ const ChartLegendContent = ({
 		</div>
 	);
 };
-ChartLegendContent.displayName = "ChartLegend";
 
 // Helper to extract item config from a payload.
 function getPayloadConfigFromPayload(
