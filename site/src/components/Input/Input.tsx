@@ -2,15 +2,13 @@
  * Copied from shadc/ui on 11/13/2024
  * @see {@link https://ui.shadcn.com/docs/components/input}
  */
-import * as React from "react";
 import { cn } from "utils/cn";
 
-export const Input = ({
+export const Input: React.FC<React.ComponentPropsWithRef<"input">> = ({
 	className,
 	type,
-	ref,
 	...props
-}: React.ComponentPropsWithRef<"input">) => {
+}) => {
 	return (
 		<input
 			type={type}
@@ -24,7 +22,6 @@ export const Input = ({
 				`,
 				className,
 			)}
-			ref={ref}
 			{...props}
 		/>
 	);
