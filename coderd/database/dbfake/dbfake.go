@@ -156,6 +156,11 @@ func (b WorkspaceBuildBuilder) Canceled() WorkspaceBuildBuilder {
 	return b
 }
 
+func (b WorkspaceBuildBuilder) Failed() WorkspaceBuildBuilder {
+	b.jobStatus = database.ProvisionerJobStatusFailed
+	return b
+}
+
 // Do generates all the resources associated with a workspace build.
 // Template and TemplateVersion will be optionally populated if no
 // TemplateID is set on the provided workspace.
@@ -327,6 +332,20 @@ func (b WorkspaceBuildBuilder) doInTX() WorkspaceResponse {
 			},
 		})
 		require.NoError(b.t, err, "cancel job")
+	case database.ProvisionerJobStatusFailed:
+		// Set provisioner job status to 'failed'
+		b.logger.Debug(context.Background(), "failing the provisioner job")
+		err = b.db.UpdateProvisionerJobWithCompleteByID(ownerCtx, database.UpdateProvisionerJobWithCompleteByIDParams{
+			ID:        job.ID,
+			UpdatedAt: dbtime.Now(),
+			Error:     sql.NullString{String: "build failed", Valid: true},
+			ErrorCode: sql.NullString{},
+			CompletedAt: sql.NullTime{
+				Time:  dbtime.Now(),
+				Valid: true,
+			},
+		})
+		require.NoError(b.t, err, "fail job")
 	default:
 		// By default, consider jobs in 'succeeded' status
 		b.logger.Debug(context.Background(), "completing the provisioner job")

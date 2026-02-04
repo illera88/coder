@@ -145,6 +145,34 @@ func TestSSH(t *testing.T) {
 			})
 		}
 	})
+	t.Run("FailedWorkspaceShowsBuildLink", func(t *testing.T) {
+		t.Parallel()
+
+		client, store := coderdtest.NewWithDatabase(t, nil)
+		client.SetLogger(testutil.Logger(t).Named("client"))
+		first := coderdtest.CreateFirstUser(t, client)
+		userClient, user := coderdtest.CreateAnotherUserMutators(t, client, first.OrganizationID, nil, func(r *codersdk.CreateUserRequestWithOrgs) {
+			r.Username = "myuser"
+		})
+		r := dbfake.WorkspaceBuild(t, store, database.WorkspaceTable{
+			Name:           "myworkspace",
+			OrganizationID: first.OrganizationID,
+			OwnerID:        user.ID,
+		}).WithAgent().Failed().Do()
+
+		ctx, cancel := context.WithTimeout(context.Background(), testutil.WaitShort)
+		defer cancel()
+
+		inv, root := clitest.New(t, "ssh", r.Workspace.Name)
+		clitest.SetupConfig(t, userClient, root)
+
+		err := inv.WithContext(ctx).Run()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "is in failed state")
+		require.Contains(t, err.Error(), "See:")
+		require.Contains(t, err.Error(), "/builds/")
+		require.Contains(t, err.Error(), "coder start")
+	})
 	t.Run("StartStoppedWorkspace", func(t *testing.T) {
 		t.Parallel()
 

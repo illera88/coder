@@ -947,8 +947,10 @@ func GetWorkspaceAndAgent(ctx context.Context, inv *serpent.Invocation, client *
 			return codersdk.Workspace{}, codersdk.WorkspaceAgent{}, nil, xerrors.Errorf("workspace %q is deleted", workspace.Name)
 		}
 		if workspace.LatestBuild.Job.Status == codersdk.ProvisionerJobFailed {
+			buildLink := buildWorkspaceBuildLink(client.URL, workspace)
 			return codersdk.Workspace{}, codersdk.WorkspaceAgent{}, nil,
-				xerrors.Errorf("workspace %q is in failed state, unable to autostart the workspace", workspace.Name)
+				xerrors.Errorf("workspace %q is in failed state, unable to autostart the workspace\n  See: %s\n  Run `coder start %s/%s` to attempt recovery",
+					workspace.Name, buildLink.String(), workspace.OwnerName, workspace.Name)
 		}
 		// The workspace needs to be stopped before we can start it.
 		// It cannot be in any pending or failed state.
@@ -1033,6 +1035,10 @@ func getWorkspaceAgent(workspace codersdk.Workspace, agentName string) (workspac
 		}
 	}
 	if len(agents) == 0 {
+		// If the latest build failed, provide a more helpful error message
+		if workspace.LatestBuild.Job.Status == codersdk.ProvisionerJobFailed {
+			return codersdk.WorkspaceAgent{}, nil, xerrors.Errorf("workspace %q is in failed state", workspace.Name)
+		}
 		return codersdk.WorkspaceAgent{}, nil, xerrors.Errorf("workspace %q has no agents", workspace.Name)
 	}
 	slices.Sort(availableNames)
@@ -1118,6 +1124,11 @@ func verifyWorkspaceOutdated(client *codersdk.Client, workspace codersdk.Workspa
 // Build the user workspace link which navigates to the Coder web UI.
 func buildWorkspaceLink(serverURL *url.URL, workspace codersdk.Workspace) *url.URL {
 	return serverURL.ResolveReference(&url.URL{Path: fmt.Sprintf("@%s/%s", workspace.OwnerName, workspace.Name)})
+}
+
+// buildWorkspaceBuildLink returns a link to the specific workspace build in the Coder web UI.
+func buildWorkspaceBuildLink(serverURL *url.URL, workspace codersdk.Workspace) *url.URL {
+	return serverURL.ResolveReference(&url.URL{Path: fmt.Sprintf("@%s/%s/builds/%d", workspace.OwnerName, workspace.Name, workspace.LatestBuild.BuildNumber)})
 }
 
 // runLocal runs a command on the local machine.
