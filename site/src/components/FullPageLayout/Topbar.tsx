@@ -29,13 +29,13 @@ export const Topbar: FC<HTMLAttributes<HTMLElement>> = (props) => {
 	);
 };
 
-export const TopbarIconButton = ({
-	ref,
-	...props
-}: IconButtonProps & { ref?: Ref<HTMLButtonElement> }) => {
+type TopbarIconButtonProps = IconButtonProps & {
+	ref?: React.Ref<HTMLButtonElement>;
+};
+
+export const TopbarIconButton: FC<TopbarIconButtonProps> = ({ ...props }) => {
 	return (
 		<IconButton
-			ref={ref}
 			{...props}
 			size="small"
 			css={{
@@ -52,24 +52,22 @@ export const TopbarIconButton = ({
 	);
 };
 
-export const TopbarButton = ({
-	ref,
-	...props
-}: ButtonProps & { ref?: Ref<HTMLButtonElement> }) => {
-	return <Button ref={ref} variant="outline" size="sm" {...props} />;
+export const TopbarButton: FC<ButtonProps> = ({ children, ...props }) => {
+	return (
+		<Button variant="outline" size="sm" {...props}>
+			{children}
+		</Button>
+	);
 };
 
-export const TopbarData: FC<HTMLAttributes<HTMLDivElement>> = (props) => {
+export const TopbarData: FC<HTMLAttributes<HTMLDivElement>> = ({
+	children,
+	...props
+}) => {
 	return (
-		<div
-			{...props}
-			css={{
-				display: "flex",
-				gap: 8,
-				alignItems: "center",
-				justifyContent: "center",
-			}}
-		/>
+		<div className="flex gap-2 items-center justify-center" {...props}>
+			{children}
+		</div>
 	);
 };
 
