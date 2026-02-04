@@ -23,33 +23,24 @@ const linkVariants = cva(
 	},
 );
 
-interface LinkProps
-	extends React.AnchorHTMLAttributes<HTMLAnchorElement>,
-		VariantProps<typeof linkVariants> {
-	asChild?: boolean;
-	showExternalIcon?: boolean;
-}
+type LinkProps = React.AnchorHTMLAttributes<HTMLAnchorElement> &
+	VariantProps<typeof linkVariants> & {
+		asChild?: boolean;
+		showExternalIcon?: boolean;
+		ref?: React.Ref<HTMLAnchorElement>;
+	};
 
-type LinkWithRefProps = LinkProps & {
-	ref?: React.Ref<HTMLAnchorElement>;
-};
-
-export const Link = ({
+export const Link: React.FC<LinkProps> = ({
 	className,
 	children,
 	size,
 	asChild,
 	showExternalIcon = true,
-	ref,
 	...props
-}: LinkWithRefProps) => {
+}) => {
 	const Comp = asChild ? Slot : "a";
 	return (
-		<Comp
-			className={cn(linkVariants({ size }), className)}
-			ref={ref}
-			{...props}
-		>
+		<Comp className={cn(linkVariants({ size }), className)} {...props}>
 			<Slottable>{children}</Slottable>
 			{showExternalIcon && props.target === "_blank" && (
 				<SquareArrowOutUpRightIcon />
