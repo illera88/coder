@@ -949,7 +949,7 @@ func GetWorkspaceAndAgent(ctx context.Context, inv *serpent.Invocation, client *
 		if workspace.LatestBuild.Job.Status == codersdk.ProvisionerJobFailed {
 			buildLink := buildWorkspaceBuildLink(client.URL, workspace)
 			return codersdk.Workspace{}, codersdk.WorkspaceAgent{}, nil,
-				xerrors.Errorf("workspace %q is in failed state, unable to autostart the workspace\n  See: %s\n  Run `coder start %s/%s` to attempt recovery",
+				xerrors.Errorf("workspace %q is in failed state, unable to autostart the workspace\n  See: %s\n  Run `coder start %s/%s` to retry starting the workspace",
 					workspace.Name, buildLink.String(), workspace.OwnerName, workspace.Name)
 		}
 		// The workspace needs to be stopped before we can start it.
@@ -1039,7 +1039,7 @@ func getWorkspaceAgent(workspace codersdk.Workspace, agentName string, serverURL
 		if workspace.LatestBuild.Job.Status == codersdk.ProvisionerJobFailed {
 			buildLink := buildWorkspaceBuildLink(serverURL, workspace)
 			return codersdk.WorkspaceAgent{}, nil, xerrors.Errorf(
-				"workspace %q is in failed state, the last build failed\n  See: %s\n  Run `coder start %s/%s` to attempt recovery",
+				"workspace %q is in failed state, the last build failed\n  See: %s\n  Run `coder start %s/%s` to retry starting the workspace",
 				workspace.Name, buildLink.String(), workspace.OwnerName, workspace.Name)
 		}
 		return codersdk.WorkspaceAgent{}, nil, xerrors.Errorf("workspace %q has no agents", workspace.Name)
