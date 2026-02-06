@@ -252,11 +252,6 @@ func (b WorkspaceBuildBuilder) Failed(opts ...BuilderOption) WorkspaceBuildBuild
 	return b
 }
 
-func (b WorkspaceBuildBuilder) Failed() WorkspaceBuildBuilder {
-	b.jobStatus = database.ProvisionerJobStatusFailed
-	return b
-}
-
 // Do generates all the resources associated with a workspace build.
 // Template and TemplateVersion will be optionally populated if no
 // TemplateID is set on the provided workspace.
