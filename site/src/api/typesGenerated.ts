@@ -353,6 +353,7 @@ export type APIKeyScope =
 	| "workspace_dormant:start"
 	| "workspace_dormant:stop"
 	| "workspace_dormant:update"
+	| "workspace_dormant:update_agent"
 	| "workspace_proxy:*"
 	| "workspace_proxy:create"
 	| "workspace_proxy:delete"
@@ -363,7 +364,8 @@ export type APIKeyScope =
 	| "workspace:ssh"
 	| "workspace:start"
 	| "workspace:stop"
-	| "workspace:update";
+	| "workspace:update"
+	| "workspace:update_agent";
 
 export const APIKeyScopes: APIKeyScope[] = [
 	"aibridge_interception:*",
@@ -555,6 +557,7 @@ export const APIKeyScopes: APIKeyScope[] = [
 	"workspace_dormant:start",
 	"workspace_dormant:stop",
 	"workspace_dormant:update",
+	"workspace_dormant:update_agent",
 	"workspace_proxy:*",
 	"workspace_proxy:create",
 	"workspace_proxy:delete",
@@ -566,6 +569,7 @@ export const APIKeyScopes: APIKeyScope[] = [
 	"workspace:start",
 	"workspace:stop",
 	"workspace:update",
+	"workspace:update_agent",
 ];
 
 // From codersdk/apikey.go
@@ -1421,6 +1425,7 @@ export type CreateWorkspaceBuildReason =
 	| "dashboard"
 	| "jetbrains_connection"
 	| "ssh_connection"
+	| "task_manual_pause"
 	| "vscode_connection";
 
 export const CreateWorkspaceBuildReasons: CreateWorkspaceBuildReason[] = [
@@ -1428,6 +1433,7 @@ export const CreateWorkspaceBuildReasons: CreateWorkspaceBuildReason[] = [
 	"dashboard",
 	"jetbrains_connection",
 	"ssh_connection",
+	"task_manual_pause",
 	"vscode_connection",
 ];
 
@@ -3579,6 +3585,14 @@ export interface PatchWorkspaceProxy {
  */
 export const PathAppSessionTokenCookie = "coder_path_app_session_token";
 
+// From codersdk/aitasks.go
+/**
+ * PauseTaskResponse represents the response from pausing a task.
+ */
+export interface PauseTaskResponse {
+	readonly workspace_build: WorkspaceBuild | null;
+}
+
 // From codersdk/roles.go
 /**
  * Permission is the format passed into the rego.
@@ -4032,6 +4046,7 @@ export type RBACAction =
 	| "share"
 	| "unassign"
 	| "update"
+	| "update_agent"
 	| "update_personal"
 	| "use"
 	| "view_insights"
@@ -4051,6 +4066,7 @@ export const RBACActions: RBACAction[] = [
 	"share",
 	"unassign",
 	"update",
+	"update_agent",
 	"update_personal",
 	"use",
 	"view_insights",
@@ -5165,6 +5181,11 @@ export interface Template {
 	readonly max_port_share_level: WorkspaceAgentPortShareLevel;
 	readonly cors_behavior: CORSBehavior;
 	readonly use_classic_parameter_flow: boolean;
+	/**
+	 * DisableModuleCache disables the use of cached Terraform modules during
+	 * provisioning.
+	 */
+	readonly disable_module_cache: boolean;
 }
 
 // From codersdk/templates.go
@@ -5694,6 +5715,11 @@ export interface UpdateTemplateMeta {
 	 * An "opt-out" is present in case the new feature breaks some existing templates.
 	 */
 	readonly use_classic_parameter_flow?: boolean;
+	/**
+	 * DisableModuleCache disables the using of cached Terraform modules during
+	 * provisioning. It is recommended not to disable this.
+	 */
+	readonly disable_module_cache?: boolean;
 }
 
 // From codersdk/users.go
@@ -6290,6 +6316,7 @@ export interface WorkspaceAgentDevcontainer {
 	readonly name: string;
 	readonly workspace_folder: string;
 	readonly config_path?: string;
+	readonly subagent_id?: string;
 	/**
 	 * Additional runtime fields.
 	 */

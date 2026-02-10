@@ -32,15 +32,17 @@ export const BreadcrumbList: React.FC<React.ComponentPropsWithRef<"ol">> = ({
 export const BreadcrumbItem: React.FC<React.ComponentPropsWithRef<"li">> = ({
 	className,
 	...props
-}) => (
-	<li
-		className={cn(
-			"inline-flex items-center gap-1.5 text-content-secondary",
-			className,
-		)}
-		{...props}
-	/>
-);
+}) => {
+	return (
+		<li
+			className={cn(
+				"inline-flex items-center gap-1.5 text-content-secondary",
+				className,
+			)}
+			{...props}
+		/>
+	);
+};
 
 type BreadcrumbLinkProps = React.ComponentPropsWithRef<"a"> & {
 	asChild?: boolean;
@@ -56,7 +58,7 @@ export const BreadcrumbLink: React.FC<BreadcrumbLinkProps> = ({
 	return (
 		<Comp
 			className={cn(
-				"transition-colors font-normal text-content-link hover:text-content-primary",
+				"text-content-secondary transition-colors hover:text-content-primary no-underline hover:underline",
 				className,
 			)}
 			{...props}
@@ -67,40 +69,49 @@ export const BreadcrumbLink: React.FC<BreadcrumbLinkProps> = ({
 export const BreadcrumbPage: React.FC<React.ComponentPropsWithRef<"span">> = ({
 	className,
 	...props
-}) => (
-	<span
-		aria-current="page"
-		className={cn("flex items-center gap-2 text-content-secondary", className)}
-		{...props}
-	/>
-);
+}) => {
+	return (
+		<span
+			aria-current="page"
+			className={cn(
+				"flex items-center gap-2 text-content-secondary",
+				className,
+			)}
+			{...props}
+		/>
+	);
+};
 
 export const BreadcrumbSeparator: React.FC<
 	Omit<React.ComponentPropsWithRef<"li">, "children">
-> = ({ className, ...props }) => (
-	<li
-		role="presentation"
-		aria-hidden="true"
-		className={cn(
-			"text-content-disabled [&>svg]:w-3.5 [&>svg]:h-3.5",
-			className,
-		)}
-		{...props}
-	>
-		/
-	</li>
-);
+> = ({ className, ...props }) => {
+	return (
+		<li
+			role="presentation"
+			aria-hidden="true"
+			className={cn(
+				"text-content-disabled [&>svg]:w-3.5 [&>svg]:h-3.5",
+				className,
+			)}
+			{...props}
+		>
+			/
+		</li>
+	);
+};
 
 export const BreadcrumbEllipsis: React.FC<
-	React.ComponentPropsWithRef<"span">
-> = ({ className, ...props }) => (
-	<span
-		role="presentation"
-		aria-hidden="true"
-		className={cn("flex h-9 w-9 items-center justify-center", className)}
-		{...props}
-	>
-		<MoreHorizontal className="h-4 w-4" />
-		<span className="sr-only">More</span>
-	</span>
-);
+	Omit<React.ComponentPropsWithRef<"span">, "children">
+> = ({ className, ...props }) => {
+	return (
+		<span
+			role="presentation"
+			aria-hidden="true"
+			className={cn("flex h-9 w-9 items-center justify-center", className)}
+			{...props}
+		>
+			<MoreHorizontal className="h-4 w-4" />
+			<span className="sr-only">More</span>
+		</span>
+	);
+};

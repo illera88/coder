@@ -19,7 +19,6 @@ import {
 	type HTMLProps,
 	isValidElement,
 	type ReactElement,
-	type Ref,
 	useMemo,
 } from "react";
 import { cn } from "utils/cn";
@@ -46,18 +45,16 @@ type SelectMenuButtonProps = ButtonProps & {
 	startIcon?: React.ReactNode;
 };
 
-export const SelectMenuButton = ({
+export const SelectMenuButton: React.FC<SelectMenuButtonProps> = ({
 	className,
 	startIcon,
 	children,
-	ref,
 	...props
-}: SelectMenuButtonProps & { ref?: Ref<HTMLButtonElement> }) => {
+}) => {
 	return (
 		<Button
 			variant="outline"
 			size="lg"
-			ref={ref}
 			// Shrink padding right slightly to account for visual weight of
 			// the chevron
 			className={cn("flex flex-row gap-2 pr-1.5", className)}

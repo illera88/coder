@@ -60,21 +60,19 @@ export type AvatarProps = AvatarPrimitive.AvatarProps &
 		ref?: React.Ref<React.ComponentRef<typeof AvatarPrimitive.Root>>;
 	};
 
-const Avatar: React.FC<AvatarProps> = ({
+export const Avatar: React.FC<AvatarProps> = ({
 	className,
 	size,
 	variant,
 	src,
 	fallback,
 	children,
-	ref,
 	...props
 }) => {
 	const theme = useTheme();
 
 	return (
 		<AvatarPrimitive.Root
-			ref={ref}
 			className={cn(avatarVariants({ size, variant, className }))}
 			{...props}
 		>
@@ -92,5 +90,3 @@ const Avatar: React.FC<AvatarProps> = ({
 		</AvatarPrimitive.Root>
 	);
 };
-
-export { Avatar };

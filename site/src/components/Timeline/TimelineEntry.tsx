@@ -1,21 +1,19 @@
 import { TableRow, type TableRowProps } from "components/Table/Table";
-import type { Ref } from "react";
 import { cn } from "utils/cn";
 
 interface TimelineEntryProps extends TableRowProps {
+	ref?: React.Ref<HTMLTableRowElement>;
 	clickable?: boolean;
 }
 
-export const TimelineEntry = ({
+export const TimelineEntry: React.FC<TimelineEntryProps> = ({
 	children,
 	clickable = true,
 	className,
-	ref,
 	...props
-}: TimelineEntryProps & { ref?: Ref<HTMLTableRowElement> }) => {
+}) => {
 	return (
 		<TableRow
-			ref={ref}
 			className={cn(
 				"focus:outline focus:-outline-offset-1 focus:outline-2 focus:outline-content-primary ",
 				"[&_td]:relative [&_td]:overflow-hidden",

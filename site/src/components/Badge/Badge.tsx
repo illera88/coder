@@ -57,10 +57,9 @@ const badgeVariants = cva(
 	},
 );
 
-type BadgeProps = React.HTMLAttributes<HTMLDivElement> &
+type BadgeProps = React.ComponentPropsWithRef<"div"> &
 	VariantProps<typeof badgeVariants> & {
 		asChild?: boolean;
-		ref?: React.Ref<HTMLDivElement>;
 	};
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -70,7 +69,6 @@ export const Badge: React.FC<BadgeProps> = ({
 	border,
 	hover,
 	asChild = false,
-	ref,
 	...props
 }) => {
 	const Comp = asChild ? Slot : "div";
@@ -78,7 +76,6 @@ export const Badge: React.FC<BadgeProps> = ({
 	return (
 		<Comp
 			{...props}
-			ref={ref}
 			className={cn(badgeVariants({ variant, size, border, hover }), className)}
 		/>
 	);

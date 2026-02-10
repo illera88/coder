@@ -1,9 +1,8 @@
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 /**
  * Copied from shadc/ui on 02/05/2025
  * @see {@link https://ui.shadcn.com/docs/components/tooltip}
  */
-import type * as React from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { cn } from "utils/cn";
 
 export const TooltipProvider = TooltipPrimitive.Provider;
@@ -16,22 +15,20 @@ export const TooltipTrigger = TooltipPrimitive.Trigger;
 
 export const TooltipArrow = TooltipPrimitive.Arrow;
 
-type TooltipContentProps = React.ComponentPropsWithRef<
+export type TooltipContentProps = React.ComponentPropsWithRef<
 	typeof TooltipPrimitive.Content
 > & {
 	disablePortal?: boolean;
 };
 
-export const TooltipContent = ({
+export const TooltipContent: React.FC<TooltipContentProps> = ({
 	className,
 	sideOffset = 4,
 	disablePortal,
-	ref,
 	...props
-}: TooltipContentProps) => {
+}) => {
 	const content = (
 		<TooltipPrimitive.Content
-			ref={ref}
 			sideOffset={sideOffset}
 			className={cn(
 				"z-50 overflow-hidden rounded-md bg-surface-primary px-3 py-2 text-xs font-medium text-content-secondary",

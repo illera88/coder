@@ -1,26 +1,18 @@
 import { Button, type ButtonProps } from "components/Button/Button";
 import { BellIcon } from "lucide-react";
-import type { Ref } from "react";
 import { cn } from "utils/cn";
 import { UnreadBadge } from "./UnreadBadge";
 
-type InboxButtonProps = {
+type InboxButtonProps = ButtonProps & {
 	unreadCount: number;
-} & ButtonProps;
+};
 
-export const InboxButton = ({
+export const InboxButton: React.FC<InboxButtonProps> = ({
 	unreadCount,
-	ref,
 	...props
-}: InboxButtonProps & { ref?: Ref<HTMLButtonElement> }) => {
+}) => {
 	return (
-		<Button
-			size="icon-lg"
-			variant="outline"
-			className="relative"
-			ref={ref}
-			{...props}
-		>
+		<Button size="icon-lg" variant="outline" className="relative" {...props}>
 			<BellIcon />
 			{unreadCount > 0 && (
 				<UnreadBadge

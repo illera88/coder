@@ -2,14 +2,12 @@
  * Copied from shadc/ui on 11/13/2024
  * @see {@link https://ui.shadcn.com/docs/components/textarea}
  */
-import type * as React from "react";
 import { cn } from "utils/cn";
 
-export const Textarea = ({
+export const Textarea: React.FC<React.ComponentPropsWithRef<"textarea">> = ({
 	className,
-	ref,
 	...props
-}: React.ComponentPropsWithRef<"textarea">) => {
+}) => {
 	return (
 		<textarea
 			className={cn(
@@ -19,7 +17,6 @@ export const Textarea = ({
 				disabled:cursor-not-allowed disabled:opacity-50 disabled:text-content-disabled md:text-sm`,
 				className,
 			)}
-			ref={ref}
 			{...props}
 		/>
 	);

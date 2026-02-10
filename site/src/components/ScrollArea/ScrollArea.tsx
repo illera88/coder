@@ -3,7 +3,6 @@
  * @see {@link https://ui.shadcn.com/docs/components/scroll-area}
  */
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
-import type * as React from "react";
 import { cn } from "utils/cn";
 
 export const ScrollArea: React.FC<

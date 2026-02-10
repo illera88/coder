@@ -4,7 +4,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "components/Tooltip/Tooltip";
-import { createContext, type FC, type Ref, useContext } from "react";
+import { createContext, type FC, useContext } from "react";
 import { cn } from "utils/cn";
 
 const statusIndicatorVariants = cva(
@@ -34,21 +34,18 @@ type StatusIndicatorContextValue = VariantProps<typeof statusIndicatorVariants>;
 
 const StatusIndicatorContext = createContext<StatusIndicatorContextValue>({});
 
-export interface StatusIndicatorProps
-	extends React.HTMLAttributes<HTMLDivElement>,
-		StatusIndicatorContextValue {}
+export type StatusIndicatorProps = React.ComponentPropsWithRef<"div"> &
+	StatusIndicatorContextValue;
 
-export const StatusIndicator = ({
+export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 	size,
 	variant,
 	className,
-	ref,
 	...props
-}: StatusIndicatorProps & { ref?: Ref<HTMLDivElement> }) => {
+}) => {
 	return (
 		<StatusIndicatorContext.Provider value={{ size, variant }}>
 			<div
-				ref={ref}
 				className={cn(statusIndicatorVariants({ variant, size }), className)}
 				{...props}
 			/>

@@ -12,7 +12,6 @@ import {
 	type FC,
 	type HTMLAttributes,
 	type ReactElement,
-	type Ref,
 } from "react";
 import { docs } from "utils/docs";
 import { healthyColor } from "./healthyColor";
@@ -155,21 +154,15 @@ export const SectionLabel: FC<HTMLAttributes<HTMLHeadingElement>> = (props) => {
 	);
 };
 
-type PillProps = HTMLAttributes<HTMLDivElement> & {
+type PillProps = React.ComponentPropsWithRef<"div"> & {
 	icon: ReactElement<HTMLAttributes<HTMLElement>>;
 };
 
-export const Pill = ({
-	icon,
-	children,
-	ref,
-	...divProps
-}: PillProps & { ref?: Ref<HTMLDivElement> }) => {
+export const Pill: React.FC<PillProps> = ({ icon, children, ...divProps }) => {
 	const theme = useTheme();
 
 	return (
 		<div
-			ref={ref}
 			css={{
 				display: "inline-flex",
 				alignItems: "center",
