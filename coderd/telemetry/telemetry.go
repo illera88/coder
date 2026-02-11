@@ -740,17 +740,19 @@ func (r *remoteReporter) createSnapshot() (*Snapshot, error) {
 		return nil
 	})
 	eg.Go(func() error {
-		dbTasks, err := r.options.Database.ListTasks(ctx, database.ListTasksParams{
-			OwnerID:        uuid.Nil,
-			OrganizationID: uuid.Nil,
-			Status:         "",
-		})
+		tasks, err := CollectTasks(ctx, r.options.Database)
 		if err != nil {
-			return err
+			return xerrors.Errorf("collect tasks telemetry: %w", err)
 		}
-		for _, dbTask := range dbTasks {
-			snapshot.Tasks = append(snapshot.Tasks, ConvertTask(dbTask))
+		snapshot.Tasks = tasks
+		return nil
+	})
+	eg.Go(func() error {
+		events, err := CollectTaskEvents(ctx, r.options.Database, createdAfter)
+		if err != nil {
+			return xerrors.Errorf("collect task events telemetry: %w", err)
 		}
+		snapshot.TaskEvents = events
 		return nil
 	})
 	eg.Go(func() error {
@@ -900,6 +902,99 @@ func (r *remoteReporter) collectBoundaryUsageSummary(ctx context.Context) (*Boun
 		PeriodStart:                now.Add(-r.options.SnapshotFrequency),
 		PeriodDurationMilliseconds: r.options.SnapshotFrequency.Milliseconds(),
 	}, nil
+}
+
+func CollectTasks(ctx context.Context, db database.Store) ([]Task, error) {
+	dbTasks, err := db.GetTasksForTelemetry(ctx)
+	if err != nil {
+		return nil, xerrors.Errorf("get tasks for telemetry: %w", err)
+	}
+	if len(dbTasks) == 0 {
+		return []Task{}, nil
+	}
+
+	tasks := make([]Task, 0, len(dbTasks))
+	for _, dbTask := range dbTasks {
+		tasks = append(tasks, ConvertTelemetryTask(dbTask))
+	}
+
+	return tasks, nil
+}
+
+// buildTaskEvent constructs a TaskEvent from the combined query row.
+func buildTaskEvent(
+	row database.GetTelemetryTaskEventsRow,
+	createdAfter time.Time,
+) TaskEvent {
+	event := TaskEvent{
+		TaskID: row.TaskID.String(),
+	}
+
+	// Last paused (latest stop build).
+	if row.StopBuildCreatedAt.Valid {
+		event.LastPausedAt = &row.StopBuildCreatedAt.Time
+		switch {
+		case row.StopBuildReason.Valid && row.StopBuildReason.BuildReason == database.BuildReasonTaskAutoPause:
+			event.PauseReason = ptr.Ref("auto")
+		case row.StopBuildReason.Valid && row.StopBuildReason.BuildReason == database.BuildReasonTaskManualPause:
+			event.PauseReason = ptr.Ref("manual")
+		default:
+			event.PauseReason = ptr.Ref("other")
+		}
+	}
+
+	// Last resumed (latest start build that follows a stop build).
+	if row.StartBuildCreatedAt.Valid && row.StopBuildCreatedAt.Valid &&
+		row.StartBuildCreatedAt.Time.After(row.StopBuildCreatedAt.Time) {
+		event.LastResumedAt = &row.StartBuildCreatedAt.Time
+	}
+
+	// Idle duration: time between last working status and latest stop.
+	if row.StopBuildCreatedAt.Valid && row.LastWorkingStatusAt.Valid &&
+		row.StopBuildCreatedAt.Time.After(row.LastWorkingStatusAt.Time) {
+		idle := row.StopBuildCreatedAt.Time.Sub(row.LastWorkingStatusAt.Time)
+		event.IdleDurationMS = ptr.Ref(idle.Milliseconds())
+	}
+
+	// Paused duration: time between latest stop and latest start,
+	// if the start is recent and follows the stop.
+	if row.StartBuildCreatedAt.Valid && row.StopBuildCreatedAt.Valid &&
+		row.StartBuildCreatedAt.Time.After(createdAfter) &&
+		row.StopBuildCreatedAt.Time.Before(row.StartBuildCreatedAt.Time) {
+		paused := row.StartBuildCreatedAt.Time.Sub(row.StopBuildCreatedAt.Time)
+		event.PausedDurationMS = ptr.Ref(paused.Milliseconds())
+	}
+
+	// Resume-to-status: time from resume to first app status. The SQL
+	// conditional lateral join only populates this for workspaces in
+	// an active phase (started more recently than stopped).
+	if row.FirstStatusAfterResumeAt.Valid && row.StartBuildCreatedAt.Valid &&
+		row.StopBuildCreatedAt.Valid &&
+		row.StartBuildCreatedAt.Time.After(row.StopBuildCreatedAt.Time) {
+		delta := row.FirstStatusAfterResumeAt.Time.Sub(row.StartBuildCreatedAt.Time)
+		event.ResumeToStatusMS = ptr.Ref(delta.Milliseconds())
+	}
+
+	return event
+}
+
+// CollectTaskEvents collects lifecycle events for tasks with recent activity.
+func CollectTaskEvents(ctx context.Context, db database.Store, createdAfter time.Time) ([]TaskEvent, error) {
+	rows, err := db.GetTelemetryTaskEvents(ctx)
+	if err != nil {
+		return nil, xerrors.Errorf("get telemetry task events: %w", err)
+	}
+	events := make([]TaskEvent, 0, len(rows))
+	for _, row := range rows {
+		events = append(events, buildTaskEvent(row, createdAfter))
+	}
+	return events, nil
+}
+
+// HashContent returns a SHA256 hash of the content as a hex string.
+// This is useful for hashing sensitive content like prompts for telemetry.
+func HashContent(content string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(content)))
 }
 
 // ConvertAPIKey anonymizes an API key.
@@ -1370,6 +1465,7 @@ type Snapshot struct {
 	NetworkEvents                        []NetworkEvent                        `json:"network_events"`
 	Organizations                        []Organization                        `json:"organizations"`
 	Tasks                                []Task                                `json:"tasks"`
+	TaskEvents                           []TaskEvent                           `json:"task_events"`
 	TelemetryItems                       []TelemetryItem                       `json:"telemetry_items"`
 	UserTailnetConnections               []UserTailnetConnection               `json:"user_tailnet_connections"`
 	PrebuiltWorkspaces                   []PrebuiltWorkspace                   `json:"prebuilt_workspaces"`
@@ -1932,38 +2028,44 @@ type Task struct {
 	TemplateVersionID    string    `json:"template_version_id"`
 	PromptHash           string    `json:"prompt_hash"` // Prompt is hashed for privacy.
 	CreatedAt            time.Time `json:"created_at"`
-	Status               string    `json:"status"`
 }
 
-// ConvertTask anonymizes a Task.
-func ConvertTask(task database.Task) Task {
-	t := &Task{
-		ID:                   task.ID.String(),
-		OrganizationID:       task.OrganizationID.String(),
-		OwnerID:              task.OwnerID.String(),
-		Name:                 task.Name,
-		WorkspaceID:          nil,
-		WorkspaceBuildNumber: nil,
-		WorkspaceAgentID:     nil,
-		WorkspaceAppID:       nil,
-		TemplateVersionID:    task.TemplateVersionID.String(),
-		PromptHash:           fmt.Sprintf("%x", sha256.Sum256([]byte(task.Prompt))),
-		CreatedAt:            task.CreatedAt,
-		Status:               string(task.Status),
+// TaskEvent represents lifecycle events for a task (pause/resume cycles).
+// These are filtered by createdAfter to only capture recent activity.
+type TaskEvent struct {
+	TaskID           string     `json:"task_id"`
+	LastPausedAt     *time.Time `json:"last_paused_at"`
+	LastResumedAt    *time.Time `json:"last_resumed_at"`
+	PauseReason      *string    `json:"pause_reason"`
+	IdleDurationMS   *int64     `json:"idle_duration_ms"`
+	PausedDurationMS *int64     `json:"paused_duration_ms"`
+	ResumeToStatusMS *int64     `json:"resume_to_status_ms"`
+}
+
+// ConvertTelemetryTask converts a telemetry query row to a Task.
+func ConvertTelemetryTask(row database.GetTasksForTelemetryRow) Task {
+	t := Task{
+		ID:                row.ID.String(),
+		OrganizationID:    row.OrganizationID.String(),
+		OwnerID:           row.OwnerID.String(),
+		Name:              row.Name,
+		TemplateVersionID: row.TemplateVersionID.String(),
+		PromptHash:        fmt.Sprintf("%x", sha256.Sum256([]byte(row.Prompt))),
+		CreatedAt:         row.CreatedAt,
 	}
-	if task.WorkspaceID.Valid {
-		t.WorkspaceID = ptr.Ref(task.WorkspaceID.UUID.String())
+	if row.WorkspaceID.Valid {
+		t.WorkspaceID = ptr.Ref(row.WorkspaceID.UUID.String())
 	}
-	if task.WorkspaceBuildNumber.Valid {
-		t.WorkspaceBuildNumber = ptr.Ref(int64(task.WorkspaceBuildNumber.Int32))
+	if row.WorkspaceAgentID.Valid {
+		t.WorkspaceBuildNumber = ptr.Ref(int64(row.WorkspaceBuildNumber))
 	}
-	if task.WorkspaceAgentID.Valid {
-		t.WorkspaceAgentID = ptr.Ref(task.WorkspaceAgentID.UUID.String())
+	if row.WorkspaceAgentID.Valid {
+		t.WorkspaceAgentID = ptr.Ref(row.WorkspaceAgentID.UUID.String())
 	}
-	if task.WorkspaceAppID.Valid {
-		t.WorkspaceAppID = ptr.Ref(task.WorkspaceAppID.UUID.String())
+	if row.WorkspaceAppID.Valid {
+		t.WorkspaceAppID = ptr.Ref(row.WorkspaceAppID.UUID.String())
 	}
-	return *t
+	return t
 }
 
 type telemetryItemKey string

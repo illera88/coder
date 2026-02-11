@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,12 +23,14 @@ import (
 	"github.com/coder/coder/v2/buildinfo"
 	"github.com/coder/coder/v2/coderd/boundaryusage"
 	"github.com/coder/coder/v2/coderd/database"
+	"github.com/coder/coder/v2/coderd/database/dbfake"
 	"github.com/coder/coder/v2/coderd/database/dbgen"
 	"github.com/coder/coder/v2/coderd/database/dbtestutil"
 	"github.com/coder/coder/v2/coderd/database/dbtime"
 	"github.com/coder/coder/v2/coderd/idpsync"
 	"github.com/coder/coder/v2/coderd/runtimeconfig"
 	"github.com/coder/coder/v2/coderd/telemetry"
+	"github.com/coder/coder/v2/coderd/util/ptr"
 	"github.com/coder/coder/v2/codersdk"
 	"github.com/coder/coder/v2/testutil"
 	"github.com/coder/quartz"
@@ -313,6 +317,15 @@ func TestTelemetry(t *testing.T) {
 		require.Equal(t, string(database.WorkspaceAgentSubsystemEnvbox), wsa.Subsystems[0])
 		require.Equal(t, string(database.WorkspaceAgentSubsystemExectrace), wsa.Subsystems[1])
 		require.Len(t, snapshot.Tasks, 1)
+		require.Len(t, snapshot.TaskEvents, 1)
+		taskEvent := snapshot.TaskEvents[0]
+		assert.Equal(t, task.ID.String(), taskEvent.TaskID)
+		assert.Nil(t, taskEvent.LastResumedAt)
+		assert.Nil(t, taskEvent.LastPausedAt)
+		assert.Nil(t, taskEvent.PauseReason)
+		assert.Nil(t, taskEvent.IdleDurationMS)
+		assert.Nil(t, taskEvent.PausedDurationMS)
+		assert.Nil(t, taskEvent.ResumeToStatusMS)
 		for _, snapTask := range snapshot.Tasks {
 			assert.Equal(t, task.ID.String(), snapTask.ID)
 			assert.Equal(t, task.OrganizationID.String(), snapTask.OrganizationID)
@@ -671,6 +684,752 @@ func TestPrebuiltWorkspacesTelemetry(t *testing.T) {
 			require.Equal(t, tc.expectedCreated, eventCounts[telemetry.PrebuiltWorkspaceEventTypeCreated])
 			require.Equal(t, tc.expectedFailed, eventCounts[telemetry.PrebuiltWorkspaceEventTypeFailed])
 			require.Equal(t, tc.expectedClaimed, eventCounts[telemetry.PrebuiltWorkspaceEventTypeClaimed])
+		})
+	}
+}
+
+// taskTelemetryHelper is a grab bag of stuff useful in task telemetry test cases
+type taskTelemetryHelper struct {
+	t    *testing.T
+	ctx  context.Context
+	db   database.Store
+	org  database.Organization
+	user database.User
+}
+
+// createBuild creates a workspace build with the given parameters,
+// handling provisioner job creation automatically.
+func (h *taskTelemetryHelper) createBuild(
+	resp dbfake.WorkspaceResponse,
+	buildNumber int32,
+	createdAt time.Time,
+	transition database.WorkspaceTransition,
+	reason database.BuildReason,
+) database.WorkspaceBuild {
+	job := dbgen.ProvisionerJob(h.t, h.db, nil, database.ProvisionerJob{
+		Provisioner:    database.ProvisionerTypeTerraform,
+		StorageMethod:  database.ProvisionerStorageMethodFile,
+		Type:           database.ProvisionerJobTypeWorkspaceBuild,
+		OrganizationID: h.org.ID,
+	})
+	return dbgen.WorkspaceBuild(h.t, h.db, database.WorkspaceBuild{
+		WorkspaceID:       resp.Workspace.ID,
+		TemplateVersionID: resp.TemplateVersion.ID,
+		JobID:             job.ID,
+		Transition:        transition,
+		Reason:            reason,
+		BuildNumber:       buildNumber,
+		CreatedAt:         createdAt,
+		HasAITask: sql.NullBool{
+			Bool:  true,
+			Valid: true,
+		},
+	})
+}
+
+// nolint: dupl // Test code is better WET than DRY.
+func TestTasksTelemetry(t *testing.T) {
+	t.Parallel()
+
+	// Define a fixed reference time for deterministic testing.
+	now := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	createAppStatus := func(ctx context.Context, db database.Store, wsID uuid.UUID, agentID, appID uuid.UUID, state database.WorkspaceAppStatusState, message string, createdAt time.Time) {
+		_, err := db.InsertWorkspaceAppStatus(ctx, database.InsertWorkspaceAppStatusParams{
+			ID:          uuid.New(),
+			CreatedAt:   createdAt,
+			WorkspaceID: wsID,
+			AgentID:     agentID,
+			AppID:       appID,
+			State:       state,
+			Message:     message,
+		})
+		require.NoError(t, err)
+	}
+
+	getApp := func(ctx context.Context, db database.Store, agentID uuid.UUID) database.WorkspaceApp {
+		apps, err := db.GetWorkspaceAppsByAgentID(ctx, agentID)
+		require.NoError(t, err)
+		require.NotEmpty(t, apps, "expected at least one app")
+		return apps[0]
+	}
+
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent)
+	}{
+		{
+			name: "no workspace - all lifecycle fields nil",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				tv := dbgen.TemplateVersion(t, h.db, database.TemplateVersion{
+					OrganizationID: h.org.ID,
+					CreatedBy:      h.user.ID,
+					HasAITask:      sql.NullBool{Bool: true, Valid: true},
+				})
+				task := dbgen.Task(h.t, h.db, database.TaskTable{
+					OwnerID:           h.user.ID,
+					OrganizationID:    h.org.ID,
+					WorkspaceID:       uuid.NullUUID{},
+					TemplateVersionID: tv.ID,
+					Prompt:            "pending task prompt",
+					CreatedAt:         now.Add(-1 * time.Hour),
+				})
+
+				expected := telemetry.Task{
+					ID:                   task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 task.Name,
+					WorkspaceID:          nil,
+					WorkspaceBuildNumber: nil,
+					WorkspaceAgentID:     nil,
+					WorkspaceAppID:       nil,
+					TemplateVersionID:    tv.ID.String(),
+					PromptHash:           telemetry.HashContent(task.Prompt),
+					CreatedAt:            task.CreatedAt,
+				}
+				return expected, nil
+			},
+		},
+		{
+			name: "running workspace - no pause/resume events",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "running task prompt",
+					CreatedAt: now.Add(-45 * time.Minute),
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-30 * time.Minute),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID: resp.Task.ID.String(),
+				}
+			},
+		},
+		{
+			name: "with app status - no lifecycle events",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				taskCreatedAt := now.Add(-90 * time.Minute)
+				firstStatusAt := now.Add(-85 * time.Minute)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "running task with status prompt",
+					CreatedAt: taskCreatedAt,
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-2 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+				createAppStatus(h.ctx, h.db, resp.Workspace.ID, resp.Agents[0].ID, app.ID, database.WorkspaceAppStatusStateWorking, "Task started", firstStatusAt)
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID: resp.Task.ID.String(),
+				}
+			},
+		},
+		{
+			name: "auto paused - LastPausedAt and PauseReason=auto",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				pauseTime := now.Add(-20 * time.Minute)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "auto paused task prompt",
+					CreatedAt: now.Add(-3 * time.Hour),
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-3 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				// Create second build (pause) using dbgen to avoid updating the task linkage.
+				_ = h.createBuild(resp, 2, pauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskAutoPause)
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID:       resp.Task.ID.String(),
+					LastPausedAt: &pauseTime,
+					PauseReason:  ptr.Ref("auto"),
+				}
+			},
+		},
+		{
+			name: "manual paused - LastPausedAt and PauseReason=manual",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				pauseTime := now.Add(-15 * time.Minute)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "manually paused task prompt",
+					CreatedAt: now.Add(-4 * time.Hour),
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-4 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				_ = h.createBuild(resp, 2, pauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskManualPause)
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID:       resp.Task.ID.String(),
+					LastPausedAt: &pauseTime,
+					PauseReason:  ptr.Ref("manual"),
+				}
+			},
+		},
+		{
+			name: "paused with idle time - IdleDurationMS calculated",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				pauseTime := now.Add(-25 * time.Minute)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "paused with idle time prompt",
+					CreatedAt: now.Add(-5 * time.Hour),
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-5 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				// Working status at -40 minutes.
+				createAppStatus(h.ctx, h.db, resp.Workspace.ID, resp.Agents[0].ID, app.ID, database.WorkspaceAppStatusStateWorking, "Working on something", now.Add(-40*time.Minute))
+				// Idle status at -35 minutes (5 minutes after working).
+				createAppStatus(h.ctx, h.db, resp.Workspace.ID, resp.Agents[0].ID, app.ID, database.WorkspaceAppStatusStateIdle, "Idle now", now.Add(-35*time.Minute))
+
+				// Pause at -25 minutes (10 minutes after idle, 15 minutes after last working).
+				_ = h.createBuild(resp, 2, pauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskAutoPause)
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID:         resp.Task.ID.String(),
+					LastPausedAt:   &pauseTime,
+					PauseReason:    ptr.Ref("auto"),
+					IdleDurationMS: ptr.Ref(15 * time.Minute.Milliseconds()),
+				}
+			},
+		},
+		{
+			name: "paused with working status after pause - IdleDurationMS nil",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				pauseTime := now.Add(-25 * time.Minute)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "paused with post-pause working status",
+					CreatedAt: now.Add(-5 * time.Hour),
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-5 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				// Working status at -20 minutes (AFTER the pause at -25 minutes).
+				// This simulates a race or out-of-order status that would
+				// produce a negative idle duration.
+				createAppStatus(h.ctx, h.db, resp.Workspace.ID, resp.Agents[0].ID, app.ID, database.WorkspaceAppStatusStateWorking, "Working after pause", now.Add(-20*time.Minute))
+
+				// Pause at -25 minutes.
+				_ = h.createBuild(resp, 2, pauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskAutoPause)
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID:       resp.Task.ID.String(),
+					LastPausedAt: &pauseTime,
+					PauseReason:  ptr.Ref("auto"),
+					// IdleDurationMS should be nil because pause is
+					// before the working status.
+				}
+			},
+		},
+		{
+			name: "recently resumed - PausedDurationMS calculated",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				pauseTime := now.Add(-50 * time.Minute)
+				resumeTime := now.Add(-10 * time.Minute)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "recently resumed task prompt",
+					CreatedAt: now.Add(-6 * time.Hour),
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-6 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				// Pause at -50 minutes.
+				_ = h.createBuild(resp, 2, pauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskAutoPause)
+
+				// Resume at -10 minutes (40 minutes of paused time).
+				_ = h.createBuild(resp, 3, resumeTime, database.WorkspaceTransitionStart, database.BuildReasonTaskResume)
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID:           resp.Task.ID.String(),
+					LastPausedAt:     &pauseTime,
+					LastResumedAt:    &resumeTime,
+					PauseReason:      ptr.Ref("auto"),
+					PausedDurationMS: ptr.Ref(40 * time.Minute.Milliseconds()),
+				}
+			},
+		},
+		{
+			name: "resumed long ago - PausedDurationMS nil",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				pauseTime := now.Add(-5 * time.Hour)
+				resumeTime := now.Add(-2 * time.Hour)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "resumed long ago task prompt",
+					CreatedAt: now.Add(-10 * time.Hour),
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-10 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				// Pause at -5 hours.
+				_ = h.createBuild(resp, 2, pauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskAutoPause)
+
+				// Resume at -2 hours (> 1hr ago, so PausedDurationMS should be nil).
+				_ = h.createBuild(resp, 3, resumeTime, database.WorkspaceTransitionStart, database.BuildReasonTaskResume)
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID:        resp.Task.ID.String(),
+					LastPausedAt:  &pauseTime,
+					PauseReason:   ptr.Ref("auto"),
+					LastResumedAt: &resumeTime,
+				}
+			},
+		},
+		{
+			name: "multiple cycles - captures latest pause/resume",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				firstResumeTime := now.Add(-150 * time.Minute) // -2.5 hours
+				latestPauseTime := now.Add(-30 * time.Minute)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "multiple pause resume cycles prompt",
+					CreatedAt: now.Add(-8 * time.Hour),
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-8 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				// First pause at -3 hours (auto).
+				_ = h.createBuild(resp, 2, now.Add(-3*time.Hour), database.WorkspaceTransitionStop, database.BuildReasonTaskAutoPause)
+
+				// First resume at -2.5 hours.
+				_ = h.createBuild(resp, 3, firstResumeTime, database.WorkspaceTransitionStart, database.BuildReasonTaskResume)
+
+				// Second pause at -30 minutes (manual).
+				_ = h.createBuild(resp, 4, latestPauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskManualPause)
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID:       resp.Task.ID.String(),
+					LastPausedAt: &latestPauseTime,
+					PauseReason:  ptr.Ref("manual"),
+				}
+			},
+		},
+		{
+			name: "currently paused after recent resume - PausedDurationMS nil",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				firstPauseTime := now.Add(-50 * time.Minute)
+				resumeTime := now.Add(-30 * time.Minute)
+				secondPauseTime := now.Add(-10 * time.Minute)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "currently paused after resume prompt",
+					CreatedAt: now.Add(-6 * time.Hour),
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-6 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				// First pause at -50 minutes.
+				_ = h.createBuild(resp, 2, firstPauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskAutoPause)
+
+				// Resume at -30 minutes.
+				_ = h.createBuild(resp, 3, resumeTime, database.WorkspaceTransitionStart, database.BuildReasonTaskResume)
+
+				// Second pause at -10 minutes (currently paused).
+				_ = h.createBuild(resp, 4, secondPauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskManualPause)
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID:       resp.Task.ID.String(),
+					LastPausedAt: &secondPauseTime,
+					PauseReason:  ptr.Ref("manual"),
+					// PausedDurationMS is nil: the workspace is currently
+					// paused (latest stop > latest start), so we cannot
+					// pair the stop with a subsequent start.
+				}
+			},
+		},
+		{
+			name: "multiple cycles with recent resume - pairs with preceding pause",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				firstPauseTime := now.Add(-50 * time.Minute)
+				resumeTime := now.Add(-30 * time.Minute)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "multi cycle recent resume prompt",
+					CreatedAt: now.Add(-6 * time.Hour),
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-6 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				// Pause at -50 minutes.
+				_ = h.createBuild(resp, 2, firstPauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskAutoPause)
+
+				// Resume at -30 minutes (20 min paused).
+				_ = h.createBuild(resp, 3, resumeTime, database.WorkspaceTransitionStart, database.BuildReasonTaskResume)
+
+				// App status 5 minutes after resume.
+				createAppStatus(h.ctx, h.db, resp.Workspace.ID, resp.Agents[0].ID, app.ID, database.WorkspaceAppStatusStateComplete, "resumed work", resumeTime.Add(5*time.Minute))
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID:           resp.Task.ID.String(),
+					LastPausedAt:     &firstPauseTime,
+					LastResumedAt:    &resumeTime,
+					PauseReason:      ptr.Ref("auto"),
+					PausedDurationMS: ptr.Ref(20 * time.Minute.Milliseconds()),
+					ResumeToStatusMS: ptr.Ref((5 * time.Minute).Milliseconds()),
+				}
+			},
+		},
+		{
+			name: "all fields populated - full lifecycle",
+			setup: func(t *testing.T, h *taskTelemetryHelper, now time.Time) (telemetry.Task, *telemetry.TaskEvent) {
+				taskCreatedAt := now.Add(-7 * time.Hour)
+				pauseTime := now.Add(-35 * time.Minute)
+				resumeTime := now.Add(-5 * time.Minute)
+
+				resp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+					OrganizationID: h.org.ID,
+					OwnerID:        h.user.ID,
+				}).WithTask(database.TaskTable{
+					Prompt:    "task with all fields prompt",
+					CreatedAt: taskCreatedAt,
+				}, nil).Seed(database.WorkspaceBuild{
+					Transition:  database.WorkspaceTransitionStart,
+					Reason:      database.BuildReasonInitiator,
+					BuildNumber: 1,
+					CreatedAt:   now.Add(-7 * time.Hour),
+				}).Succeeded().Do()
+
+				app := getApp(h.ctx, h.db, resp.Agents[0].ID)
+
+				// First status at -6.5 hours (30 minutes after creation).
+				createAppStatus(h.ctx, h.db, resp.Workspace.ID, resp.Agents[0].ID, app.ID, database.WorkspaceAppStatusStateWorking, "Started working", now.Add(-390*time.Minute))
+				// Last working status at -45 minutes.
+				createAppStatus(h.ctx, h.db, resp.Workspace.ID, resp.Agents[0].ID, app.ID, database.WorkspaceAppStatusStateWorking, "Still working", now.Add(-45*time.Minute))
+
+				// Pause at -35 minutes (10 minutes idle duration).
+				_ = h.createBuild(resp, 2, pauseTime, database.WorkspaceTransitionStop, database.BuildReasonTaskAutoPause)
+
+				// Resume at -5 minutes (30 minutes paused duration).
+				_ = h.createBuild(resp, 3, resumeTime, database.WorkspaceTransitionStart, database.BuildReasonTaskResume)
+
+				// Post-resume status at 3 minutes after resume.
+				createAppStatus(h.ctx, h.db, resp.Workspace.ID, resp.Agents[0].ID, app.ID, database.WorkspaceAppStatusStateComplete, "Resumed working", resumeTime.Add(3*time.Minute))
+
+				expected := telemetry.Task{
+					ID:                   resp.Task.ID.String(),
+					OrganizationID:       h.org.ID.String(),
+					OwnerID:              h.user.ID.String(),
+					Name:                 resp.Task.Name,
+					WorkspaceID:          ptr.Ref(resp.Workspace.ID.String()),
+					WorkspaceBuildNumber: ptr.Ref(int64(1)),
+					WorkspaceAgentID:     ptr.Ref(resp.Agents[0].ID.String()),
+					WorkspaceAppID:       ptr.Ref(app.ID.String()),
+					TemplateVersionID:    resp.TemplateVersion.ID.String(),
+					PromptHash:           telemetry.HashContent(resp.Task.Prompt),
+					CreatedAt:            resp.Task.CreatedAt,
+				}
+				return expected, &telemetry.TaskEvent{
+					TaskID:           resp.Task.ID.String(),
+					LastPausedAt:     &pauseTime,
+					LastResumedAt:    &resumeTime,
+					PauseReason:      ptr.Ref("auto"),
+					IdleDurationMS:   ptr.Ref(10 * time.Minute.Milliseconds()),
+					PausedDurationMS: ptr.Ref(30 * time.Minute.Milliseconds()),
+					ResumeToStatusMS: ptr.Ref((3 * time.Minute).Milliseconds()),
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testutil.Context(t, testutil.WaitMedium)
+			db, _ := dbtestutil.NewDB(t)
+			org, err := db.GetDefaultOrganization(ctx)
+			require.NoError(t, err)
+			user := dbgen.User(t, db, database.User{})
+			_ = dbgen.OrganizationMember(t, db, database.OrganizationMember{
+				UserID:         user.ID,
+				OrganizationID: org.ID,
+			})
+			h := &taskTelemetryHelper{
+				t:    t,
+				ctx:  ctx,
+				db:   db,
+				org:  org,
+				user: user,
+			}
+
+			// Create a deleted task. This is a test antagonist that should never show up in results.
+			deletedTaskResp := dbfake.WorkspaceBuild(h.t, h.db, database.WorkspaceTable{
+				OrganizationID: h.org.ID,
+				OwnerID:        h.user.ID,
+			}).WithTask(database.TaskTable{
+				Prompt:    fmt.Sprintf("deleted-task-%s", t.Name()),
+				CreatedAt: now.Add(-100 * time.Hour),
+			}, nil).Seed(database.WorkspaceBuild{
+				Transition:  database.WorkspaceTransitionStart,
+				Reason:      database.BuildReasonInitiator,
+				BuildNumber: 1,
+				CreatedAt:   now.Add(-100 * time.Hour),
+			}).Succeeded().Do()
+			_, err = db.DeleteTask(h.ctx, database.DeleteTaskParams{
+				DeletedAt: now.Add(-99 * time.Hour),
+				ID:        deletedTaskResp.Task.ID,
+			})
+			require.NoError(h.t, err, "creating deleted task antagonist")
+
+			expectedTask, expectedEvent := tt.setup(t, h, now)
+
+			actualTasks, err := telemetry.CollectTasks(h.ctx, h.db)
+			require.NoError(t, err, "unexpected error collecting tasks telemetry")
+			// Invariant: deleted tasks should NEVER appear in results.
+			require.Len(t, actualTasks, 1, "expected exactly one task")
+
+			if diff := cmp.Diff(expectedTask, actualTasks[0]); diff != "" {
+				t.Fatalf("task diff (-want +got):\n%s", diff)
+			}
+
+			actualEvents, err := telemetry.CollectTaskEvents(h.ctx, h.db, now.Add(-1*time.Hour))
+			require.NoError(t, err)
+			if expectedEvent == nil {
+				require.Empty(t, actualEvents)
+			} else {
+				// Each test case creates exactly one workspace with lifecycle
+				// activity, so we expect exactly one event.
+				require.Len(t, actualEvents, 1)
+				if diff := cmp.Diff(*expectedEvent, actualEvents[0]); diff != "" {
+					t.Fatalf("event diff (-want +got):\n%s", diff)
+				}
+			}
 		})
 	}
 }

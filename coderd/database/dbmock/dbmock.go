@@ -3284,6 +3284,21 @@ func (mr *MockStoreMockRecorder) GetTaskSnapshot(ctx, taskID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskSnapshot", reflect.TypeOf((*MockStore)(nil).GetTaskSnapshot), ctx, taskID)
 }
 
+// GetTasksForTelemetry mocks base method.
+func (m *MockStore) GetTasksForTelemetry(ctx context.Context) ([]database.GetTasksForTelemetryRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTasksForTelemetry", ctx)
+	ret0, _ := ret[0].([]database.GetTasksForTelemetryRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTasksForTelemetry indicates an expected call of GetTasksForTelemetry.
+func (mr *MockStoreMockRecorder) GetTasksForTelemetry(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTasksForTelemetry", reflect.TypeOf((*MockStore)(nil).GetTasksForTelemetry), ctx)
+}
+
 // GetTelemetryItem mocks base method.
 func (m *MockStore) GetTelemetryItem(ctx context.Context, key string) (database.TelemetryItem, error) {
 	m.ctrl.T.Helper()
@@ -3312,6 +3327,21 @@ func (m *MockStore) GetTelemetryItems(ctx context.Context) ([]database.Telemetry
 func (mr *MockStoreMockRecorder) GetTelemetryItems(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTelemetryItems", reflect.TypeOf((*MockStore)(nil).GetTelemetryItems), ctx)
+}
+
+// GetTelemetryTaskEvents mocks base method.
+func (m *MockStore) GetTelemetryTaskEvents(ctx context.Context) ([]database.GetTelemetryTaskEventsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTelemetryTaskEvents", ctx)
+	ret0, _ := ret[0].([]database.GetTelemetryTaskEventsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTelemetryTaskEvents indicates an expected call of GetTelemetryTaskEvents.
+func (mr *MockStoreMockRecorder) GetTelemetryTaskEvents(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTelemetryTaskEvents", reflect.TypeOf((*MockStore)(nil).GetTelemetryTaskEvents), ctx)
 }
 
 // GetTemplateAppInsights mocks base method.

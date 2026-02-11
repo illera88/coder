@@ -1774,6 +1774,14 @@ func (m queryMetricsStore) GetTaskSnapshot(ctx context.Context, taskID uuid.UUID
 	return r0, r1
 }
 
+func (m queryMetricsStore) GetTasksForTelemetry(ctx context.Context) ([]database.GetTasksForTelemetryRow, error) {
+	start := time.Now()
+	r0, r1 := m.s.GetTasksForTelemetry(ctx)
+	m.queryLatencies.WithLabelValues("GetTasksForTelemetry").Observe(time.Since(start).Seconds())
+	m.queryCounts.WithLabelValues(httpmw.ExtractHTTPRoute(ctx), httpmw.ExtractHTTPMethod(ctx), "GetTasksForTelemetry").Inc()
+	return r0, r1
+}
+
 func (m queryMetricsStore) GetTelemetryItem(ctx context.Context, key string) (database.TelemetryItem, error) {
 	start := time.Now()
 	r0, r1 := m.s.GetTelemetryItem(ctx, key)
@@ -1787,6 +1795,14 @@ func (m queryMetricsStore) GetTelemetryItems(ctx context.Context) ([]database.Te
 	r0, r1 := m.s.GetTelemetryItems(ctx)
 	m.queryLatencies.WithLabelValues("GetTelemetryItems").Observe(time.Since(start).Seconds())
 	m.queryCounts.WithLabelValues(httpmw.ExtractHTTPRoute(ctx), httpmw.ExtractHTTPMethod(ctx), "GetTelemetryItems").Inc()
+	return r0, r1
+}
+
+func (m queryMetricsStore) GetTelemetryTaskEvents(ctx context.Context) ([]database.GetTelemetryTaskEventsRow, error) {
+	start := time.Now()
+	r0, r1 := m.s.GetTelemetryTaskEvents(ctx)
+	m.queryLatencies.WithLabelValues("GetTelemetryTaskEvents").Observe(time.Since(start).Seconds())
+	m.queryCounts.WithLabelValues(httpmw.ExtractHTTPRoute(ctx), httpmw.ExtractHTTPMethod(ctx), "GetTelemetryTaskEvents").Inc()
 	return r0, r1
 }
 

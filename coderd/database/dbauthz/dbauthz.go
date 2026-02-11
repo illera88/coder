@@ -3119,6 +3119,13 @@ func (q *querier) GetTaskSnapshot(ctx context.Context, taskID uuid.UUID) (databa
 	return q.db.GetTaskSnapshot(ctx, taskID)
 }
 
+func (q *querier) GetTasksForTelemetry(ctx context.Context) ([]database.GetTasksForTelemetryRow, error) {
+	if err := q.authorizeContext(ctx, policy.ActionRead, rbac.ResourceTask.All()); err != nil {
+		return nil, err
+	}
+	return q.db.GetTasksForTelemetry(ctx)
+}
+
 func (q *querier) GetTelemetryItem(ctx context.Context, key string) (database.TelemetryItem, error) {
 	if err := q.authorizeContext(ctx, policy.ActionRead, rbac.ResourceSystem); err != nil {
 		return database.TelemetryItem{}, err
@@ -3131,6 +3138,13 @@ func (q *querier) GetTelemetryItems(ctx context.Context) ([]database.TelemetryIt
 		return nil, err
 	}
 	return q.db.GetTelemetryItems(ctx)
+}
+
+func (q *querier) GetTelemetryTaskEvents(ctx context.Context) ([]database.GetTelemetryTaskEventsRow, error) {
+	if err := q.authorizeContext(ctx, policy.ActionRead, rbac.ResourceTask.All()); err != nil {
+		return nil, err
+	}
+	return q.db.GetTelemetryTaskEvents(ctx)
 }
 
 func (q *querier) GetTemplateAppInsights(ctx context.Context, arg database.GetTemplateAppInsightsParams) ([]database.GetTemplateAppInsightsRow, error) {

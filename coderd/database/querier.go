@@ -359,8 +359,20 @@ type sqlcQuerier interface {
 	GetTaskByOwnerIDAndName(ctx context.Context, arg GetTaskByOwnerIDAndNameParams) (Task, error)
 	GetTaskByWorkspaceID(ctx context.Context, workspaceID uuid.UUID) (Task, error)
 	GetTaskSnapshot(ctx context.Context, taskID uuid.UUID) (TaskSnapshot, error)
+	// Returns tasks with their workspace app bindings for telemetry collection.
+	// This bypasses the expensive tasks_with_status view by querying the base
+	// tables directly.
+	GetTasksForTelemetry(ctx context.Context) ([]GetTasksForTelemetryRow, error)
 	GetTelemetryItem(ctx context.Context, key string) (TelemetryItem, error)
 	GetTelemetryItems(ctx context.Context) ([]TelemetryItem, error)
+	// Returns all data needed to build task lifecycle events for telemetry
+	// in a single round-trip. For each task whose workspace is in the
+	// given set, fetches:
+	//   - the latest workspace app binding (task_workspace_apps)
+	//   - the most recent stop and start builds (workspace_builds)
+	//   - the last "working" app status (workspace_app_statuses)
+	//   - the first app status after resume, for active workspaces
+	GetTelemetryTaskEvents(ctx context.Context) ([]GetTelemetryTaskEventsRow, error)
 	// GetTemplateAppInsights returns the aggregate usage of each app in a given
 	// timeframe. The result can be filtered on template_ids, meaning only user data
 	// from workspaces based on those templates will be included.

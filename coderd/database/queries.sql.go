@@ -13293,6 +13293,205 @@ func (q *sqlQuerier) GetTaskSnapshot(ctx context.Context, taskID uuid.UUID) (Tas
 	return i, err
 }
 
+const getTasksForTelemetry = `-- name: GetTasksForTelemetry :many
+SELECT
+    t.id,
+    t.organization_id,
+    t.owner_id,
+    t.name,
+    t.workspace_id,
+    t.template_version_id,
+    t.prompt,
+    t.created_at,
+    -- COALESCE to 0 because sqlc cannot infer nullability from a LEFT
+    -- JOIN LATERAL. Build numbers start at 1, so 0 means "no binding".
+    COALESCE(twa.workspace_build_number, 0) AS workspace_build_number,
+    twa.workspace_agent_id,
+    twa.workspace_app_id
+FROM tasks t
+LEFT JOIN LATERAL (
+    SELECT
+        task_app.workspace_build_number,
+        task_app.workspace_agent_id,
+        task_app.workspace_app_id
+    FROM task_workspace_apps task_app
+    WHERE task_app.task_id = t.id
+    ORDER BY task_app.workspace_build_number DESC
+    LIMIT 1
+) twa ON TRUE
+WHERE t.deleted_at IS NULL
+ORDER BY t.created_at DESC
+`
+
+type GetTasksForTelemetryRow struct {
+	ID                   uuid.UUID     `db:"id" json:"id"`
+	OrganizationID       uuid.UUID     `db:"organization_id" json:"organization_id"`
+	OwnerID              uuid.UUID     `db:"owner_id" json:"owner_id"`
+	Name                 string        `db:"name" json:"name"`
+	WorkspaceID          uuid.NullUUID `db:"workspace_id" json:"workspace_id"`
+	TemplateVersionID    uuid.UUID     `db:"template_version_id" json:"template_version_id"`
+	Prompt               string        `db:"prompt" json:"prompt"`
+	CreatedAt            time.Time     `db:"created_at" json:"created_at"`
+	WorkspaceBuildNumber int32         `db:"workspace_build_number" json:"workspace_build_number"`
+	WorkspaceAgentID     uuid.NullUUID `db:"workspace_agent_id" json:"workspace_agent_id"`
+	WorkspaceAppID       uuid.NullUUID `db:"workspace_app_id" json:"workspace_app_id"`
+}
+
+// Returns tasks with their workspace app bindings for telemetry collection.
+// This bypasses the expensive tasks_with_status view by querying the base
+// tables directly.
+func (q *sqlQuerier) GetTasksForTelemetry(ctx context.Context) ([]GetTasksForTelemetryRow, error) {
+	rows, err := q.db.QueryContext(ctx, getTasksForTelemetry)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTasksForTelemetryRow
+	for rows.Next() {
+		var i GetTasksForTelemetryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.OwnerID,
+			&i.Name,
+			&i.WorkspaceID,
+			&i.TemplateVersionID,
+			&i.Prompt,
+			&i.CreatedAt,
+			&i.WorkspaceBuildNumber,
+			&i.WorkspaceAgentID,
+			&i.WorkspaceAppID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTelemetryTaskEvents = `-- name: GetTelemetryTaskEvents :many
+WITH task_event_data AS (
+    SELECT
+        t.id AS task_id,
+        t.workspace_id,
+        twa.workspace_app_id,
+        -- Latest stop build.
+        stop_build.created_at   AS stop_build_created_at,
+        stop_build.reason       AS stop_build_reason,
+        -- Latest start build.
+        start_build.created_at  AS start_build_created_at,
+        -- Last "working" app status (for idle duration).
+        lws.created_at          AS last_working_status_at,
+        -- First app status after resume (for resume-to-status duration).
+        -- Only populated for workspaces in an active phase (started more
+        -- recently than stopped).
+        fsar.created_at         AS first_status_after_resume_at
+    FROM tasks t
+    LEFT JOIN LATERAL (
+        SELECT task_app.workspace_app_id
+        FROM task_workspace_apps task_app
+        WHERE task_app.task_id = t.id
+        ORDER BY task_app.workspace_build_number DESC
+        LIMIT 1
+    ) twa ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT wb.created_at, wb.reason
+        FROM workspace_builds wb
+        WHERE wb.workspace_id = t.workspace_id
+          AND wb.transition = 'stop'
+        ORDER BY wb.build_number DESC
+        LIMIT 1
+    ) stop_build ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT wb.created_at
+        FROM workspace_builds wb
+        WHERE wb.workspace_id = t.workspace_id
+          AND wb.transition = 'start'
+        ORDER BY wb.build_number DESC
+        LIMIT 1
+    ) start_build ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT was.created_at
+        FROM workspace_app_statuses was
+        WHERE was.app_id = twa.workspace_app_id
+          AND was.state = 'working'
+        ORDER BY was.created_at DESC
+        LIMIT 1
+    ) lws ON twa.workspace_app_id IS NOT NULL
+    LEFT JOIN LATERAL (
+        SELECT was.created_at
+        FROM workspace_app_statuses was
+        WHERE was.app_id = twa.workspace_app_id
+          AND was.created_at > start_build.created_at
+        ORDER BY was.created_at ASC
+        LIMIT 1
+    ) fsar ON twa.workspace_app_id IS NOT NULL
+        AND start_build.created_at IS NOT NULL
+        AND (stop_build.created_at IS NULL
+             OR start_build.created_at > stop_build.created_at)
+    WHERE t.deleted_at IS NULL
+      AND t.workspace_id IS NOT NULL
+    ORDER BY t.created_at DESC
+)
+SELECT task_id, workspace_id, workspace_app_id, stop_build_created_at, stop_build_reason, start_build_created_at, last_working_status_at, first_status_after_resume_at FROM task_event_data
+`
+
+type GetTelemetryTaskEventsRow struct {
+	TaskID                   uuid.UUID       `db:"task_id" json:"task_id"`
+	WorkspaceID              uuid.NullUUID   `db:"workspace_id" json:"workspace_id"`
+	WorkspaceAppID           uuid.NullUUID   `db:"workspace_app_id" json:"workspace_app_id"`
+	StopBuildCreatedAt       sql.NullTime    `db:"stop_build_created_at" json:"stop_build_created_at"`
+	StopBuildReason          NullBuildReason `db:"stop_build_reason" json:"stop_build_reason"`
+	StartBuildCreatedAt      sql.NullTime    `db:"start_build_created_at" json:"start_build_created_at"`
+	LastWorkingStatusAt      sql.NullTime    `db:"last_working_status_at" json:"last_working_status_at"`
+	FirstStatusAfterResumeAt sql.NullTime    `db:"first_status_after_resume_at" json:"first_status_after_resume_at"`
+}
+
+// Returns all data needed to build task lifecycle events for telemetry
+// in a single round-trip. For each task whose workspace is in the
+// given set, fetches:
+//   - the latest workspace app binding (task_workspace_apps)
+//   - the most recent stop and start builds (workspace_builds)
+//   - the last "working" app status (workspace_app_statuses)
+//   - the first app status after resume, for active workspaces
+func (q *sqlQuerier) GetTelemetryTaskEvents(ctx context.Context) ([]GetTelemetryTaskEventsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getTelemetryTaskEvents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTelemetryTaskEventsRow
+	for rows.Next() {
+		var i GetTelemetryTaskEventsRow
+		if err := rows.Scan(
+			&i.TaskID,
+			&i.WorkspaceID,
+			&i.WorkspaceAppID,
+			&i.StopBuildCreatedAt,
+			&i.StopBuildReason,
+			&i.StartBuildCreatedAt,
+			&i.LastWorkingStatusAt,
+			&i.FirstStatusAfterResumeAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertTask = `-- name: InsertTask :one
 INSERT INTO tasks
 	(id, organization_id, owner_id, name, display_name, workspace_id, template_version_id, template_parameters, prompt, created_at)
