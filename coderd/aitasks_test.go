@@ -2780,4 +2780,28 @@ func TestPauseTask(t *testing.T) {
 		require.ErrorAs(t, err, &apiErr)
 		require.Equal(t, http.StatusInternalServerError, apiErr.StatusCode())
 	})
+
+	t.Run("Notification", func(t *testing.T) {
+		t.Parallel()
+
+		notifyEnq := &notificationstest.FakeEnqueuer{}
+		db, ps := dbtestutil.NewDB(t)
+		client, _, _ := coderdtest.NewWithAPI(t, &coderdtest.Options{
+			Database:              db,
+			Pubsub:                ps,
+			NotificationsEnqueuer: notifyEnq,
+		})
+		user := coderdtest.CreateFirstUser(t, client)
+		task, _ := setupWorkspaceTask(t, db, user)
+
+		ctx := testutil.Context(t, testutil.WaitShort)
+		_, err := client.PauseTask(ctx, codersdk.Me, task.ID)
+		require.NoError(t, err)
+
+		sent := notifyEnq.Sent(notificationstest.WithTemplateID(notifications.TemplateTaskPaused))
+		require.Len(t, sent, 1)
+		require.Equal(t, user.UserID, sent[0].UserID)
+		require.Equal(t, task.Name, sent[0].Labels["task"])
+		require.Equal(t, "manual", sent[0].Labels["pause_reason"])
+	})
 }
