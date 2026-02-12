@@ -33,6 +33,7 @@ import (
 	"github.com/coder/coder/v2/buildinfo"
 	"github.com/coder/coder/v2/cli/cliui"
 	"github.com/coder/coder/v2/cli/config"
+	fido2pkg "github.com/coder/coder/v2/cli/fido2"
 	"github.com/coder/coder/v2/cli/gitauth"
 	"github.com/coder/coder/v2/cli/sessionstore"
 	"github.com/coder/coder/v2/cli/telemetry"
@@ -612,7 +613,90 @@ func (r *RootCmd) InitClient(inv *serpent.Invocation) (*codersdk.Client, error) 
 		)
 	}
 
-	return codersdk.New(r.clientURL, clientOpts...), nil
+	client := codersdk.New(r.clientURL, clientOpts...)
+
+	// If a FIDO2 credential and encrypted connect token exist, upgrade
+	// the client to use the FIDO2SessionTokenProvider. Normal API calls
+	// use the operate token; workspace connections trigger a FIDO2
+	// assertion to decrypt the connect token.
+	configDir := string(r.createConfig())
+	if fido2pkg.HasCredential(configDir) && fido2pkg.HasEncryptedToken(configDir) {
+		// deriveKeyWithRetry triggers a YubiKey touch and returns the
+		// 32-byte FIDO2-derived encryption key. Retries on timeout
+		// and prompts for PIN if the key requires one.
+		deriveKeyWithRetry := func() ([]byte, error) {
+			pin := ""
+			for attempt := range 3 {
+				if attempt > 0 {
+					_, _ = fmt.Fprintln(os.Stderr, "Touch timed out. Try again...")
+				}
+				_, _ = fmt.Fprintln(os.Stderr, "Touch your security key to connect...")
+				key, err := fido2pkg.RunDeriveKey(configDir, pin)
+				if errors.Is(err, fido2pkg.ErrTouchTimeout) {
+					continue
+				}
+				if errors.Is(err, fido2pkg.ErrPinRequired) {
+					pin, _ = cliui.Prompt(inv, cliui.PromptOptions{
+						Text:   "Security key PIN:",
+						Secret: true,
+					})
+					continue
+				}
+				if err != nil {
+					return nil, err
+				}
+				return key, nil
+			}
+			return nil, xerrors.New("FIDO2 touch timed out after 3 attempts")
+		}
+
+		client.SessionTokenProvider = &codersdk.FIDO2SessionTokenProvider{
+			OperateToken: r.token,
+			GetConnectToken: func() (string, error) {
+				key, err := deriveKeyWithRetry()
+				if err != nil {
+					return "", err
+				}
+				defer fido2pkg.ZeroBytes(key)
+				token, err := fido2pkg.Decrypt(key, configDir)
+				if err != nil {
+					return "", xerrors.Errorf("FIDO2 decrypt: %w", err)
+				}
+				return token, nil
+			},
+			RefreshConnectToken: func(ctx context.Context) (string, error) {
+				_, _ = fmt.Fprintln(os.Stderr, "Connect token expired. Creating a new one...")
+
+				// Create a new connect token using the operate token.
+				// Reuse the same client options (TLS, proxy, etc.).
+				operateClient := codersdk.New(r.clientURL, clientOpts...)
+				operateClient.SetSessionToken(r.token)
+				resp, err := operateClient.CreateToken(ctx, codersdk.Me, codersdk.CreateTokenRequest{
+					TokenName: fmt.Sprintf("fido2-connect-%d", time.Now().Unix()),
+					Scopes:    []codersdk.APIKeyScope{"coder:workspaces.access"},
+				})
+				if err != nil {
+					return "", xerrors.Errorf("create new connect token: %w", err)
+				}
+
+				// Encrypt the new token with the FIDO2-derived key.
+				key, err := deriveKeyWithRetry()
+				if err != nil {
+					return "", err
+				}
+				defer fido2pkg.ZeroBytes(key)
+
+				if err := fido2pkg.Encrypt(key, resp.Key, configDir); err != nil {
+					return "", xerrors.Errorf("encrypt new connect token: %w", err)
+				}
+
+				_, _ = fmt.Fprintln(os.Stderr, "New connect token created and encrypted.")
+				return resp.Key, nil
+			},
+		}
+	}
+
+	return client, nil
 }
 
 // TryInitClient is similar to InitClient but doesn't error when credentials are missing.

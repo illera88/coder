@@ -140,6 +140,7 @@ var compositePerms = map[ScopeName]map[string][]policy.Action{
 	},
 	"coder:workspaces.operate": {
 		ResourceWorkspace.Type: {policy.ActionRead, policy.ActionUpdate},
+		ResourceTemplate.Type:  {policy.ActionRead},
 	},
 	"coder:workspaces.delete": {
 		ResourceWorkspace.Type: {policy.ActionRead, policy.ActionDelete},

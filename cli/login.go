@@ -11,12 +11,14 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/pkg/browser"
 	"golang.org/x/xerrors"
 
 	"github.com/coder/coder/v2/cli/cliui"
+	fido2pkg "github.com/coder/coder/v2/cli/fido2"
 	"github.com/coder/coder/v2/cli/sessionstore"
 	"github.com/coder/coder/v2/coderd/userpassword"
 	"github.com/coder/coder/v2/codersdk"
@@ -149,6 +151,7 @@ func (r *RootCmd) login() *serpent.Command {
 		password           string
 		trial              bool
 		useTokenForSession bool
+		useFIDO2           bool
 	)
 	cmd := &serpent.Command{
 		Use:   "login [<url>]",
@@ -408,6 +411,98 @@ func (r *RootCmd) login() *serpent.Command {
 				return xerrors.Errorf("get user: %w", err)
 			}
 
+			if useFIDO2 {
+				configDir := string(r.createConfig())
+				if !fido2pkg.IsHelperInstalled() {
+					return xerrors.Errorf("coder-fido2 helper not found on PATH")
+				}
+
+				needsRegister := !fido2pkg.HasCredential(configDir)
+				pin := ""
+
+				// Register a FIDO2 credential if needed (first-time setup).
+				if needsRegister {
+					_, _ = fmt.Fprintln(inv.Stderr, "Registering your security key (touch 1 of 2)...")
+					if err := fido2WithRetry(func() error {
+						return fido2pkg.RunRegister(configDir, pin)
+					}, inv.Stderr); err != nil {
+						if errors.Is(err, fido2pkg.ErrPinRequired) {
+							pin, _ = cliui.Prompt(inv, cliui.PromptOptions{
+								Text:   "Security key PIN:",
+								Secret: true,
+							})
+							// Retry once with PIN.
+							if retryErr := fido2pkg.RunRegister(configDir, pin); retryErr != nil {
+								return xerrors.Errorf("register FIDO2 credential: %w", retryErr)
+							}
+						} else {
+							return xerrors.Errorf("register FIDO2 credential: %w", err)
+						}
+					}
+				}
+
+				// Derive encryption key (requires touch).
+				if needsRegister {
+					_, _ = fmt.Fprintln(inv.Stderr, "Protecting session (touch 2 of 2)...")
+				} else {
+					_, _ = fmt.Fprintln(inv.Stderr, "Touch your security key...")
+				}
+				var key []byte
+				if err := fido2WithRetry(func() error {
+					var deriveErr error
+					key, deriveErr = fido2pkg.RunDeriveKey(configDir, pin)
+					return deriveErr
+				}, inv.Stderr); err != nil {
+					if errors.Is(err, fido2pkg.ErrPinRequired) && pin == "" {
+						pin, _ = cliui.Prompt(inv, cliui.PromptOptions{
+							Text:   "Security key PIN:",
+							Secret: true,
+						})
+						// Retry once with PIN.
+						key, err = fido2pkg.RunDeriveKey(configDir, pin)
+						if err != nil {
+							return xerrors.Errorf("FIDO2 key derivation: %w", err)
+						}
+					} else {
+						return xerrors.Errorf("FIDO2 key derivation: %w", err)
+					}
+				}
+				defer fido2pkg.ZeroBytes(key)
+
+				// Create the connect token and encrypt it immediately.
+				// Use a timestamp suffix to avoid name collisions with
+				// previous tokens.
+				suffix := fmt.Sprintf("-%d", time.Now().Unix())
+				connectTokenResp, err := client.CreateToken(ctx, codersdk.Me, codersdk.CreateTokenRequest{
+					TokenName: "fido2-connect" + suffix,
+					Scopes:    []codersdk.APIKeyScope{"coder:workspaces.access"},
+				})
+				if err != nil {
+					return xerrors.Errorf("create connect token: %w", err)
+				}
+
+				if err := fido2pkg.Encrypt(key, connectTokenResp.Key, configDir); err != nil {
+					return xerrors.Errorf("encrypt connect token: %w", err)
+				}
+
+				// Create the operate token last. If this fails, we have an
+				// encrypted connect token on disk but no operate token -- the
+				// user just re-runs login.
+				// The operate token needs broad access for workspace
+				// lookup, listing, starting, and stopping. The security
+				// boundary is the connect token (FIDO2-protected), which
+				// is the only token that grants ActionSSH.
+				operateTokenResp, err := client.CreateToken(ctx, codersdk.Me, codersdk.CreateTokenRequest{
+					TokenName: "fido2-operate" + suffix,
+				})
+				if err != nil {
+					return xerrors.Errorf("create operate token: %w", err)
+				}
+
+				sessionToken = operateTokenResp.Key
+				_, _ = fmt.Fprintln(inv.Stderr, "FIDO2-protected session created. Workspace connections require your security key.")
+			}
+
 			config := r.createConfig()
 			err = r.ensureTokenBackend().Write(client.URL, sessionToken)
 			if err != nil {
@@ -460,6 +555,12 @@ func (r *RootCmd) login() *serpent.Command {
 			Flag:        "use-token-as-session",
 			Description: "By default, the CLI will generate a new session token when logging in. This flag will instead use the provided token as the session token.",
 			Value:       serpent.BoolOf(&useTokenForSession),
+		},
+		{
+			Flag:        "fido2",
+			Env:         "CODER_LOGIN_FIDO2",
+			Description: "Create a FIDO2-protected session. Workspace connections will require touching your security key.",
+			Value:       serpent.BoolOf(&useFIDO2),
 		},
 	}
 	cmd.Children = []*serpent.Command{
@@ -589,4 +690,23 @@ func promptCountry(inv *serpent.Invocation) (string, error) {
 		return "", xerrors.Errorf("select country: %w", err)
 	}
 	return selection, nil
+}
+
+// fido2WithRetry retries fn up to 3 times when the error is a FIDO2
+// touch timeout. Non-timeout errors are returned immediately.
+func fido2WithRetry(fn func() error, stderr io.Writer) error {
+	for attempt := range 3 {
+		if attempt > 0 {
+			_, _ = fmt.Fprintln(stderr, "Touch timed out. Try again...")
+		}
+		err := fn()
+		if errors.Is(err, fido2pkg.ErrTouchTimeout) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return xerrors.New("FIDO2 touch timed out after 3 attempts")
 }

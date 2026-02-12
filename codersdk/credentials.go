@@ -17,6 +17,16 @@ type SessionTokenProvider interface {
 	GetSessionToken() string
 }
 
+// DialFailureHandler is an optional interface that SessionTokenProviders
+// can implement to react to WebSocket dial failures. If the provider
+// implements this, DialAgent calls OnDialFailure with the HTTP status
+// code when the coordination WebSocket handshake fails.
+//
+// @typescript-ignore DialFailureHandler
+type DialFailureHandler interface {
+	OnDialFailure(statusCode int)
+}
+
 // FixedSessionTokenProvider provides a given, fixed, session token. E.g. one read from file or environment variable
 // at the program start.
 // @typescript-ignore FixedSessionTokenProvider

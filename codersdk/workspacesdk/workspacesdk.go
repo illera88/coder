@@ -283,6 +283,15 @@ func (c *Client) DialAgent(dialCtx context.Context, agentID uuid.UUID, options *
 		return nil, xerrors.Errorf("timed out waiting for coordinator and derp map: %w", dialCtx.Err())
 	case err = <-dialer.Connected():
 		if err != nil {
+			// If the provider supports handling dial failures (e.g.
+			// FIDO2 token refresh), notify it so it can refresh
+			// credentials for the next attempt.
+			var sdkErr *codersdk.Error
+			if xerrors.As(err, &sdkErr) {
+				if h, ok := c.client.SessionTokenProvider.(codersdk.DialFailureHandler); ok {
+					h.OnDialFailure(sdkErr.StatusCode())
+				}
+			}
 			options.Logger.Error(ctx, "failed to connect to tailnet v2+ API", slog.Error(err))
 			return nil, xerrors.Errorf("start connector: %w", err)
 		}

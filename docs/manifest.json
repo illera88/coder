@@ -494,6 +494,11 @@
 							"path": "./admin/users/headless-auth.md"
 						},
 						{
+							"title": "FIDO2 Hardware Key",
+							"description": "Protect workspace connections with a FIDO2 hardware security key like YubiKey",
+							"path": "./admin/users/fido2-auth.md"
+						},
+						{
 							"title": "Groups \u0026 Roles",
 							"description": "Manage access control with user groups and role-based permissions for Coder resources",
 							"path": "./admin/users/groups-roles.md",
