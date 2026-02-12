@@ -292,7 +292,7 @@ require (
 	github.com/elastic/go-windows v1.0.0 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.0
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/go-chi/hostrouter v0.3.0 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
@@ -484,7 +484,9 @@ require (
 	github.com/go-git/go-git/v5 v5.16.5
 	github.com/go-webauthn/webauthn v0.15.0
 	github.com/icholy/replace v0.6.0
+	github.com/ldclabs/cose v1.3.2
 	github.com/mark3labs/mcp-go v0.38.0
+	github.com/mohammadv184/go-fido2 v0.0.0-00010101000000-000000000000
 	gonum.org/v1/gonum v0.17.0
 )
 
@@ -600,3 +602,5 @@ replace github.com/anthropics/anthropic-sdk-go v1.19.0 => github.com/dannykoppin
 
 // https://github.com/openai/openai-go/pull/602
 replace github.com/openai/openai-go/v3 => github.com/SasSwart/openai-go/v3 v3.0.0-20260204134041-fb987b42a728
+
+replace github.com/mohammadv184/go-fido2 => github.com/illera88/go-fido2 v0.1.1-0.20260212232217-95ac646ea565

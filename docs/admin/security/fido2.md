@@ -23,26 +23,9 @@ templates, etc.) are not affected and use the regular session token.
 
 ## Prerequisites
 
-The `coder-fido2` helper binary must be installed on the user's machine and
-available on `PATH`. This binary handles USB communication with the security
-key. It is built separately because it requires CGo and the `libfido2` C
-library.
-
-### macOS
-
-```shell
-brew install libfido2
-cd cmd/coder-fido2
-CGO_ENABLED=1 go build -o /usr/local/bin/coder-fido2 .
-```
-
-### Linux
-
-```shell
-sudo apt-get install libfido2-dev
-cd cmd/coder-fido2
-CGO_ENABLED=1 go build -o /usr/local/bin/coder-fido2 .
-```
+FIDO2 support is built into the `coder` CLI binary — no separate helper binary
+or C libraries are needed. The CLI communicates directly with USB security keys
+using a pure Go implementation.
 
 ## Server configuration
 
@@ -146,8 +129,7 @@ You have no security keys registered. Run 'coder webauthn register' to set up yo
   Disable the web terminal if you need to close this gap.
 - Workspace apps (code-server, JupyterLab, etc.) accessed through the dashboard
   proxy are not behind FIDO2 enforcement.
-- The `coder-fido2` helper binary must be built and distributed separately from
-  the main Coder binary due to its CGo dependency.
+
 - **High-availability deployments**: The single-use token replay cache
   (`--fido2-token-duration 0s`) is stored in-memory per `coderd` process. In
   multi-replica deployments, a stolen JWT could theoretically be replayed once

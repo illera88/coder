@@ -43,7 +43,7 @@ type FIDO2AuthProvider struct{}
 func (FIDO2AuthProvider) Name() string { return "FIDO2" }
 
 func (FIDO2AuthProvider) IsAvailable() bool {
-	return fido2.IsHelperInstalled()
+	return fido2.IsAvailable()
 }
 
 func (FIDO2AuthProvider) HasCredentials(inv *serpent.Invocation, client *codersdk.Client) bool {

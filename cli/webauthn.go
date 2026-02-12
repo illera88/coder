@@ -49,8 +49,8 @@ func (r *RootCmd) webauthnRegister() *serpent.Command {
 			serpent.RequireNArgs(0),
 		),
 		Handler: func(inv *serpent.Invocation) error {
-			if !fido2.IsHelperInstalled() {
-				return xerrors.New("coder-fido2 helper not found on PATH; install it first")
+			if !fido2.IsAvailable() {
+				return xerrors.New("no FIDO2 security key detected; plug in your security key and try again")
 			}
 
 			client, err := r.InitClient(inv)
