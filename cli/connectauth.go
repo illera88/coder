@@ -6,7 +6,6 @@ import (
 
 	"golang.org/x/xerrors"
 
-	"github.com/coder/coder/v2/cli/cliui"
 	"github.com/coder/coder/v2/cli/fido2"
 	"github.com/coder/coder/v2/codersdk"
 	"github.com/coder/serpent"
@@ -66,6 +65,7 @@ func (FIDO2AuthProvider) ObtainToken(inv *serpent.Invocation, client *codersdk.C
 	}
 
 	origin := client.URL.String()
+	_, _ = fmt.Fprintln(inv.Stderr, "Touch your security key...")
 	responseJSON, err := fido2RunWithRetry(inv, fido2.RunAssert, assertionJSON, origin)
 	if err != nil {
 		return "", xerrors.Errorf("FIDO2 assertion: %w", err)
@@ -98,6 +98,9 @@ func defaultConnectionAuthProviders() []ConnectionAuthProvider {
 // in order and returns a JWT from the first one that is available
 // and has credentials. Returns empty string if no provider applies
 // (user has no credentials or no provider is available).
+//
+// This is called by the dialer's OnFIDO2Required callback when the
+// server rejects a connection with a FIDO2 requirement.
 func ObtainConnectionJWT(inv *serpent.Invocation, client *codersdk.Client) (string, error) {
 	for _, p := range defaultConnectionAuthProviders() {
 		if !p.IsAvailable() {
@@ -114,16 +117,4 @@ func ObtainConnectionJWT(inv *serpent.Invocation, client *codersdk.Client) (stri
 		return token, nil
 	}
 	return "", nil
-}
-
-// promptConnectionAuth is a convenience for commands that need
-// connection auth but want to show a user-friendly message when
-// it fails. Used by ssh and port-forward.
-func promptConnectionAuth(inv *serpent.Invocation, client *codersdk.Client) string {
-	jwt, err := ObtainConnectionJWT(inv, client)
-	if err != nil {
-		cliui.Warnf(inv.Stderr, "Connection authentication failed: %v", err)
-		return ""
-	}
-	return jwt
 }

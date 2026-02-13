@@ -110,8 +110,10 @@ func classifyError(err error) error {
 	msg := err.Error()
 	if strings.Contains(msg, "timed out") ||
 		strings.Contains(msg, "operation denied") ||
+		strings.Contains(msg, "OPERATION_DENIED") ||
 		strings.Contains(msg, "KEEPALIVE_CANCEL") ||
-		strings.Contains(msg, "ACTION_TIMEOUT") {
+		strings.Contains(msg, "ACTION_TIMEOUT") ||
+		strings.Contains(msg, "USER_ACTION_TIMEOUT") {
 		return ErrTouchTimeout
 	}
 	if strings.Contains(msg, "pin required") ||

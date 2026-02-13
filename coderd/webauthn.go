@@ -50,6 +50,46 @@ const (
 	webAuthnJTICacheMaxSize = 10000
 )
 
+// webAuthnVerifyCache tracks the last successful FIDO2 verification
+// time per user. When --fido2-token-duration > 0, the coordination
+// endpoint accepts connections from users who verified recently
+// (within the duration window) without requiring a JWT header on
+// every connection. This avoids requiring a key touch per SSH
+// invocation.
+type webAuthnVerifyCache struct {
+	mu      sync.Mutex
+	entries map[uuid.UUID]time.Time // userID → last verified
+}
+
+func newWebAuthnVerifyCache() *webAuthnVerifyCache {
+	return &webAuthnVerifyCache{
+		entries: make(map[uuid.UUID]time.Time),
+	}
+}
+
+// RecordVerification records that a user successfully verified
+// with their FIDO2 key at the current time.
+func (c *webAuthnVerifyCache) RecordVerification(userID uuid.UUID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries[userID] = time.Now()
+}
+
+// IsRecentlyVerified returns true if the user verified within the
+// given duration. Returns false if duration is 0 (single-use mode).
+func (c *webAuthnVerifyCache) IsRecentlyVerified(userID uuid.UUID, duration time.Duration) bool {
+	if duration == 0 {
+		return false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	verified, ok := c.entries[userID]
+	if !ok {
+		return false
+	}
+	return time.Since(verified) < duration
+}
+
 // webAuthnJTICache tracks used JWT IDs to prevent replay of
 // single-use tokens. Entries are stored with their expiry time
 // and cleaned up lazily.
@@ -644,6 +684,10 @@ func (api *API) verifyWebAuthnChallenge(rw http.ResponseWriter, r *http.Request)
 		})
 		return
 	}
+
+	// Record the verification time so subsequent connections within
+	// the token duration window don't require another key touch.
+	api.WebAuthnVerifyCache.RecordVerification(user.ID)
 
 	httpapi.Write(ctx, rw, http.StatusOK, codersdk.WebAuthnVerifyResponse{
 		JWT: token,

@@ -626,6 +626,7 @@ func New(options *Options) *API {
 		Experiments:                 experiments,
 		WebpushDispatcher:           options.WebPushDispatcher,
 		WebAuthnJTICache:            newWebAuthnJTICache(),
+		WebAuthnVerifyCache:         newWebAuthnVerifyCache(),
 		healthCheckGroup:            &singleflight.Group[string, *healthsdk.HealthcheckReport]{},
 		Acquirer: provisionerdserver.NewAcquirer(
 			ctx,
@@ -1889,6 +1890,11 @@ type API struct {
 	// WebAuthnJTICache tracks used JWT IDs to prevent replay of
 	// single-use connection tokens.
 	WebAuthnJTICache *webAuthnJTICache
+
+	// WebAuthnVerifyCache tracks recent FIDO2 verification times
+	// per user so subsequent connections within the token duration
+	// window don't require another key touch.
+	WebAuthnVerifyCache *webAuthnVerifyCache
 
 	HTTPAuth *HTTPAuthorizer
 

@@ -188,11 +188,12 @@ type DialAgentOptions struct {
 	// Whether the client will send network telemetry events.
 	// Enable instead of Disable so it's initialized to false (in tests).
 	EnableTelemetry bool
-	// ConnectionJWT is an optional short-lived JWT obtained via WebAuthn
-	// FIDO2 verification. When set, it is sent as a Coder-WebAuthn-JWT
-	// header on the coordination WebSocket so the server can verify
-	// physical presence for sensitive operations.
-	ConnectionJWT string
+	// OnFIDO2Required is called when the server rejects the connection
+	// with a FIDO2 requirement (403). The callback should perform the
+	// FIDO2 challenge-verify flow and return a JWT. The dialer will
+	// retry the connection with the JWT. If nil, FIDO2 rejections
+	// are treated as permanent errors.
+	OnFIDO2Required func() (string, error)
 }
 
 // RewriteDERPMap rewrites the DERP map to use the configured access URL of the
@@ -224,13 +225,6 @@ func (c *Client) DialAgent(dialCtx context.Context, agentID uuid.UUID, options *
 	}
 	c.client.SessionTokenProvider.SetDialOption(wsOptions)
 
-	if options.ConnectionJWT != "" {
-		if wsOptions.HTTPHeader == nil {
-			wsOptions.HTTPHeader = http.Header{}
-		}
-		wsOptions.HTTPHeader.Set("Coder-WebAuthn-JWT", options.ConnectionJWT)
-	}
-
 	// New context, separate from dialCtx. We don't want to cancel the
 	// connection if dialCtx is canceled.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -246,6 +240,7 @@ func (c *Client) DialAgent(dialCtx context.Context, agentID uuid.UUID, options *
 	}
 
 	dialer := NewWebsocketDialer(options.Logger, coordinateURL, wsOptions)
+	dialer.OnFIDO2Required = options.OnFIDO2Required
 	clk := quartz.NewReal()
 	controller := tailnet.NewController(options.Logger, dialer)
 	controller.ResumeTokenCtrl = tailnet.NewBasicResumeTokenController(options.Logger, clk)

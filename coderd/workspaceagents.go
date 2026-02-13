@@ -1487,10 +1487,19 @@ func (api *API) workspaceAgentClientCoordinate(rw http.ResponseWriter, r *http.R
 	// proxy-authenticated requests, safely skipping enforcement.
 	if api.DeploymentValues.RequireFIDO2Connect.Value() {
 		if apiKey, ok := httpmw.APIKeyOptional(r); ok {
+			tokenDuration := api.DeploymentValues.Sessions.FIDO2TokenDuration.Value()
+
+			// If the user recently verified (within the token
+			// duration window), allow the connection without a
+			// JWT header. This lets multiple SSH sessions share
+			// a single key touch.
+			if api.WebAuthnVerifyCache.IsRecentlyVerified(apiKey.UserID, tokenDuration) {
+				// Recently verified — allow through.
+				goto fido2Passed
+			}
+
 			jwtToken := r.Header.Get("Coder-WebAuthn-JWT")
 			if jwtToken == "" {
-				// Distinguish between "no key registered" and "key
-				// registered but didn't touch" for clear messaging.
 				//nolint:gocritic // System reads credentials for enforcement check.
 				userCreds, credErr := api.Database.GetWebAuthnCredentialsByUserID(
 					dbauthz.AsSystemRestricted(ctx), apiKey.UserID,
@@ -1522,8 +1531,12 @@ func (api *API) workspaceAgentClientCoordinate(rw http.ResponseWriter, r *http.R
 				})
 				return
 			}
+			// JWT is valid — also record in verify cache so
+			// subsequent connections don't need a JWT.
+			api.WebAuthnVerifyCache.RecordVerification(apiKey.UserID)
 		}
 	}
+fido2Passed:
 
 	// This is used by Enterprise code to control the functionality of this route.
 	// Namely, disabling the route using `CODER_BROWSER_ONLY`.
